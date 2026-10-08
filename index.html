@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lift Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app" id="app">
+    <header class="topbar">
+      <h1>Lift Tracker</h1>
+    </header>
+
+    <nav class="week-nav" aria-label="Week">
+      <button id="prev-week" class="nav-btn" type="button" aria-label="Previous week">&#8249;</button>
+      <div class="week-info">
+        <div id="week-label" class="week-label" aria-live="polite"></div>
+        <div id="week-sub" class="week-sub"></div>
+      </div>
+      <button id="next-week" class="nav-btn" type="button" aria-label="Next week">&#8250;</button>
+    </nav>
+
+    <section class="stage" id="stage">
+      <figure class="figure" id="figure-front">
+        <figcaption>Front</figcaption>
+      </figure>
+      <figure class="figure" id="figure-back">
+        <figcaption>Back</figcaption>
+      </figure>
+      <div id="muscle-label" class="muscle-label" role="status" hidden></div>
+    </section>
+
+    <ul class="legend" id="legend">
+      <li><span class="swatch swatch-none"></span>Not trained</li>
+      <li class="current-only"><span class="swatch swatch-week"></span>Trained earlier this week</li>
+      <li class="current-only"><span class="swatch swatch-today"></span>Logged today</li>
+      <li class="past-only"><span class="swatch swatch-today"></span>Trained</li>
+    </ul>
+  </main>
+
+  <script src="js/muscles.js"></script>
+  <script src="js/dates.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/figure.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

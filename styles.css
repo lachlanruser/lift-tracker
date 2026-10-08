@@ -1,0 +1,206 @@
+:root {
+  --bg: #f6f5f2;
+  --ink: #1d1f1c;
+  --muted: #6b6f69;
+  --line: #dddcd6;
+  --body: #e6e4de;
+  --none: #c6c9c2;
+  --week: #a8d8b3;
+  --today: #2f9e55;
+  --active-stroke: #1d1f1c;
+  --label-bg: #1d1f1c;
+  --label-ink: #ffffff;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161816;
+    --ink: #e8eae6;
+    --muted: #9aa097;
+    --line: #2e322e;
+    --body: #2a2e2a;
+    --none: #474c46;
+    --week: #2f6040;
+    --today: #4fc777;
+    --active-stroke: #e8eae6;
+    --label-bg: #e8eae6;
+    --label-ink: #161816;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #161816;
+  --ink: #e8eae6;
+  --muted: #9aa097;
+  --line: #2e322e;
+  --body: #2a2e2a;
+  --none: #474c46;
+  --week: #2f6040;
+  --today: #4fc777;
+  --active-stroke: #e8eae6;
+  --label-bg: #e8eae6;
+  --label-ink: #161816;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.topbar h1 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* Week navigation */
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.week-info { flex: 1; text-align: center; }
+
+.week-label { font-size: 17px; font-weight: 600; }
+
+.week-sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+.nav-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.nav-btn:hover:not(:disabled) { background: var(--line); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+.nav-btn:focus-visible { outline: 2px solid var(--today); outline-offset: 2px; }
+
+/* Figures */
+
+.stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding-top: 20px;
+}
+
+.figure {
+  margin: 0;
+  flex: 1 1 0;
+  max-width: 300px;
+  text-align: center;
+}
+
+.figure figcaption {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.figure-svg {
+  width: 100%;
+  height: auto;
+  max-height: max(360px, calc(100vh - 230px));
+  display: block;
+  overflow: visible;
+}
+
+.body path { fill: var(--body); }
+
+.muscle { cursor: pointer; outline: none; }
+
+.muscle path {
+  fill: var(--none);
+  stroke: var(--bg);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  transition: fill 150ms ease, filter 150ms ease;
+}
+
+.muscle[data-state="week"] path { fill: var(--week); }
+.muscle[data-state="today"] path,
+.muscle[data-state="trained"] path { fill: var(--today); }
+
+.muscle.is-active path {
+  stroke: var(--active-stroke);
+  stroke-width: 2;
+  filter: brightness(1.06);
+}
+
+.muscle.is-active { position: relative; }
+
+.view-only .muscle { cursor: default; }
+
+/* Floating name label */
+
+.muscle-label {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -100%);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--label-bg);
+  color: var(--label-ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Legend */
+
+.legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 20px;
+  margin: 24px 0 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.legend li { display: flex; align-items: center; gap: 6px; }
+
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.swatch-none { background: var(--none); }
+.swatch-week { background: var(--week); }
+.swatch-today { background: var(--today); }
+
+.app:not(.view-only) .past-only,
+.view-only .current-only { display: none; }
+
+@media (max-width: 600px) {
+  .stage { flex-direction: column; align-items: center; gap: 16px; }
+  .figure { width: 100%; max-width: 280px; }
+}
