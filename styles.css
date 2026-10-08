@@ -101,6 +101,51 @@ body {
 .nav-btn:disabled { opacity: 0.3; cursor: default; }
 .nav-btn:focus-visible { outline: 2px solid var(--today); outline-offset: 2px; }
 
+/* Day strip */
+
+.day-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  max-width: 460px;
+  margin: 14px auto 0;
+}
+
+.day-chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.day-chip .dow { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.day-chip .date { font-size: 15px; font-weight: 600; }
+
+.day-chip:hover:not(:disabled) { background: var(--line); }
+.day-chip:focus-visible { outline: 2px solid var(--today); outline-offset: 2px; }
+.day-chip:disabled { opacity: 0.35; cursor: default; }
+
+.day-chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.day-chip[aria-pressed="true"] .dow { color: var(--bg); opacity: 0.75; }
+
+.day-chip.is-today::after {
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--today);
+}
+
 /* Figures */
 
 .stage {
@@ -129,7 +174,7 @@ body {
 .figure-svg {
   width: 100%;
   height: auto;
-  max-height: max(360px, calc(100vh - 230px));
+  max-height: max(360px, calc(100vh - 300px));
   display: block;
   overflow: visible;
 }
@@ -147,16 +192,13 @@ body {
 }
 
 .muscle[data-state="week"] path { fill: var(--week); }
-.muscle[data-state="today"] path,
-.muscle[data-state="trained"] path { fill: var(--today); }
+.muscle[data-state="day"] path { fill: var(--today); }
 
 .muscle.is-active path {
   stroke: var(--active-stroke);
   stroke-width: 2;
   filter: brightness(1.06);
 }
-
-.muscle.is-active { position: relative; }
 
 .view-only .muscle { cursor: default; }
 
@@ -195,10 +237,7 @@ body {
 .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .swatch-none { background: var(--none); }
 .swatch-week { background: var(--week); }
-.swatch-today { background: var(--today); }
-
-.app:not(.view-only) .past-only,
-.view-only .current-only { display: none; }
+.swatch-day { background: var(--today); }
 
 @media (max-width: 600px) {
   .stage { flex-direction: column; align-items: center; gap: 16px; }

@@ -24,38 +24,14 @@ var Store = (function () {
     }
   }
 
-  function loggedOn(day, id) {
-    var list = state.logs[day];
-    return !!list && list.indexOf(id) !== -1;
-  }
+  function logs() { return state.logs; }
 
   // Add or remove id from day's log. Returns true if now logged.
   function toggle(day, id) {
-    var list = state.logs[day] || [];
-    var i = list.indexOf(id);
-    if (i === -1) list.push(id);
-    else list.splice(i, 1);
-
-    if (list.length) state.logs[day] = list;
-    else delete state.logs[day];
+    var logged = Stats.toggleIn(state.logs, day, id);
     save();
-    return i === -1;
+    return logged;
   }
 
-  // { id: "today" | "week" | "none" } for the week starting monday.
-  // today is null for weeks that don't contain today.
-  function weekStatus(monday, today) {
-    var status = {};
-    MUSCLES.forEach(function (m) { status[m.id] = "none"; });
-    Dates.weekDays(monday).forEach(function (day) {
-      (state.logs[day] || []).forEach(function (id) {
-        if (!(id in status)) return;
-        if (day === today) status[id] = "today";
-        else if (status[id] === "none") status[id] = "week";
-      });
-    });
-    return status;
-  }
-
-  return { loggedOn: loggedOn, toggle: toggle, weekStatus: weekStatus };
+  return { logs: logs, toggle: toggle };
 })();

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lift Tracker Tests</title>
+  <style>
+    :root { --bg: #f6f5f2; --ink: #1d1f1c; --pass: #2f9e55; --fail: #c62828; color-scheme: light; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #161816; --ink: #e8eae6; --pass: #4fc777; --fail: #ff6b6b; color-scheme: dark; }
+    }
+    body { background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, sans-serif; margin: 0; padding: 24px 16px; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    #summary { font-weight: 700; margin-bottom: 16px; }
+    .pass { color: var(--pass); }
+    .fail { color: var(--fail); }
+    h2 { font-size: 14px; margin: 18px 0 4px; }
+    ul { margin: 0; padding-left: 18px; }
+    pre { margin: 2px 0 6px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Lift Tracker tests</h1>
+  <div id="summary"></div>
+  <div id="results"></div>
+
+  <script src="../js/muscles.js"></script>
+  <script src="../js/dates.js"></script>
+  <script src="../js/stats.js"></script>
+  <script src="tests.js"></script>
+</body>
+</html>

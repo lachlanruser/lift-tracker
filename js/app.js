@@ -1,5 +1,6 @@
-// Wiring: week navigation, label reveal, and tap/click-to-log.
-// Mouse: hover shows the name, click toggles today's log.
+// Wiring: week navigation, day strip, label reveal, and tap/click-to-log.
+// Taps log to the day selected in the day strip (today by default).
+// Mouse: hover shows the name, click toggles the selected day's log.
 // Touch/pen: first tap selects + shows the name, tapping it again toggles.
 // Keyboard: focus shows the name, Enter/Space toggles, Escape clears.
 
@@ -11,12 +12,26 @@
   var weekSub = document.getElementById("week-sub");
   var prevBtn = document.getElementById("prev-week");
   var nextBtn = document.getElementById("next-week");
+  var dayStrip = document.getElementById("day-strip");
+  var legendDay = document.getElementById("legend-day");
 
   document.getElementById("figure-front").appendChild(Figure.build("front"));
   document.getElementById("figure-back").appendChild(Figure.build("back"));
   var groups = Array.prototype.slice.call(stage.querySelectorAll(".muscle"));
 
+  var chips = [];
+  for (var i = 0; i < 7; i++) {
+    var chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "day-chip";
+    chip.innerHTML = '<span class="dow"></span><span class="date"></span>';
+    chip.addEventListener("click", onChipClick);
+    dayStrip.appendChild(chip);
+    chips.push(chip);
+  }
+
   var viewedMonday = currentMonday();
+  var selectedDay = Dates.todayKey();
   var activeId = null;    // muscle whose label is showing
   var selectedId = null;  // touch selection (awaiting a second tap)
   var lastPointer = "mouse";
@@ -25,31 +40,63 @@
     return Dates.mondayOf(Dates.todayKey());
   }
 
-  // Only the week containing today can be edited, and only today's log.
+  // Any day up to and including today can be edited.
   function editable() {
-    return viewedMonday === currentMonday();
+    return !Dates.isAfter(selectedDay, Dates.todayKey());
+  }
+
+  // Today for the current week, Sunday for past weeks.
+  function defaultDayFor(monday) {
+    return monday === currentMonday() ? Dates.todayKey() : Dates.addDays(monday, 6);
+  }
+
+  function dayText(day, today) {
+    return day === today ? "today, " + Dates.formatDay(day) : Dates.formatDay(day);
   }
 
   function render() {
     var today = Dates.todayKey();
-    var isCurrent = editable();
-    var status = Store.weekStatus(viewedMonday, isCurrent ? today : null);
+    var status = Stats.weekStatus(Store.logs(), viewedMonday, selectedDay);
 
     groups.forEach(function (g) {
       var id = g.getAttribute("data-muscle");
-      var state = status[id];
-      if (!isCurrent && state === "week") state = "trained";
-      g.setAttribute("data-state", state);
-      g.setAttribute("aria-pressed", state === "today" ? "true" : "false");
+      g.setAttribute("data-state", status[id]);
+      g.setAttribute("aria-pressed", status[id] === "day" ? "true" : "false");
       g.classList.toggle("is-active", id === activeId);
     });
 
+    Dates.weekDays(viewedMonday).forEach(function (day, i) {
+      var parts = Dates.dayParts(day);
+      var chip = chips[i];
+      chip.setAttribute("data-day", day);
+      chip.setAttribute("aria-label", Dates.formatDay(day) + (day === today ? " (today)" : ""));
+      chip.setAttribute("aria-pressed", day === selectedDay ? "true" : "false");
+      chip.disabled = Dates.isAfter(day, today);
+      chip.classList.toggle("is-today", day === today);
+      chip.firstChild.textContent = parts.dow;
+      chip.lastChild.textContent = parts.date;
+    });
+
     weekLabel.textContent = Dates.formatWeek(viewedMonday);
-    weekSub.textContent = isCurrent
-      ? "This week · logging for today, " + Dates.formatDay(today)
-      : "Past week · view only";
+    weekSub.textContent = "Logging for " + dayText(selectedDay, today);
+    legendDay.textContent = selectedDay === today ? "Logged today" : "Logged " + Dates.formatDay(selectedDay);
     nextBtn.disabled = viewedMonday >= currentMonday();
-    app.classList.toggle("view-only", !isCurrent);
+  }
+
+  function onChipClick(e) {
+    e.stopPropagation();
+    var day = e.currentTarget.getAttribute("data-day");
+    if (Dates.isAfter(day, Dates.todayKey())) return;
+    clearLabel();
+    selectedDay = day;
+    render();
+  }
+
+  function goToWeek(monday) {
+    clearLabel();
+    viewedMonday = monday;
+    selectedDay = defaultDayFor(monday);
+    render();
   }
 
   function showLabel(id, target) {
@@ -82,7 +129,7 @@
       render();
       return;
     }
-    Store.toggle(Dates.todayKey(), id);
+    Store.toggle(selectedDay, id);
     render();
   }
 
@@ -132,17 +179,13 @@
 
   prevBtn.addEventListener("click", function (e) {
     e.stopPropagation();
-    clearLabel();
-    viewedMonday = Dates.addWeeks(viewedMonday, -1);
-    render();
+    goToWeek(Dates.addWeeks(viewedMonday, -1));
   });
 
   nextBtn.addEventListener("click", function (e) {
     e.stopPropagation();
     if (viewedMonday >= currentMonday()) return;
-    clearLabel();
-    viewedMonday = Dates.addWeeks(viewedMonday, 1);
-    render();
+    goToWeek(Dates.addWeeks(viewedMonday, 1));
   });
 
   // Pick up a new day/week if the app was left open.

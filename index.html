@@ -21,6 +21,8 @@
       <button id="next-week" class="nav-btn" type="button" aria-label="Next week">&#8250;</button>
     </nav>
 
+    <div id="day-strip" class="day-strip" role="group" aria-label="Day to log"></div>
+
     <section class="stage" id="stage">
       <figure class="figure" id="figure-front">
         <figcaption>Front</figcaption>
@@ -32,15 +34,15 @@
     </section>
 
     <ul class="legend" id="legend">
-      <li><span class="swatch swatch-none"></span>Not trained</li>
-      <li class="current-only"><span class="swatch swatch-week"></span>Trained earlier this week</li>
-      <li class="current-only"><span class="swatch swatch-today"></span>Logged today</li>
-      <li class="past-only"><span class="swatch swatch-today"></span>Trained</li>
+      <li><span class="swatch swatch-none"></span>Not trained this week</li>
+      <li><span class="swatch swatch-week"></span>Trained other days this week</li>
+      <li><span class="swatch swatch-day"></span><span id="legend-day">Logged today</span></li>
     </ul>
   </main>
 
   <script src="js/muscles.js"></script>
   <script src="js/dates.js"></script>
+  <script src="js/stats.js"></script>
   <script src="js/store.js"></script>
   <script src="js/figure.js"></script>
   <script src="js/app.js"></script>

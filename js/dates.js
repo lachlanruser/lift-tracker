@@ -48,13 +48,29 @@ var Dates = (function () {
     return days;
   }
 
-  // "28 Sep – 4 Oct 2026", or "29 Dec 2025 – 4 Jan 2026" across a year.
+  // Keys are zero-padded, so string comparison is date order.
+  function isAfter(a, b) {
+    return a > b;
+  }
+
+  // Rolling 30-day window ending on (and including) end.
+  function monthWindow(end) {
+    return { start: addDays(end, -29), end: end };
+  }
+
+  // "21 – 27 Sep 2026", "28 Sep – 4 Oct 2026", "29 Dec 2025 – 4 Jan 2026".
+  function formatRange(start, end) {
+    var a = parseKey(start);
+    var b = parseKey(end);
+    var right = b.getDate() + " " + MONTHS[b.getMonth()] + " " + b.getFullYear();
+    var left = String(a.getDate());
+    if (a.getFullYear() !== b.getFullYear()) left += " " + MONTHS[a.getMonth()] + " " + a.getFullYear();
+    else if (a.getMonth() !== b.getMonth()) left += " " + MONTHS[a.getMonth()];
+    return left + " – " + right;
+  }
+
   function formatWeek(monday) {
-    var a = parseKey(monday);
-    var b = parseKey(addDays(monday, 6));
-    var left = a.getDate() + " " + MONTHS[a.getMonth()];
-    if (a.getFullYear() !== b.getFullYear()) left += " " + a.getFullYear();
-    return left + " – " + b.getDate() + " " + MONTHS[b.getMonth()] + " " + b.getFullYear();
+    return formatRange(monday, addDays(monday, 6));
   }
 
   // "Sun 4 Oct"
@@ -63,13 +79,23 @@ var Dates = (function () {
     return WEEKDAYS[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()];
   }
 
+  // { dow: "Sun", date: 4 } for day-strip chips.
+  function dayParts(key) {
+    var d = parseKey(key);
+    return { dow: WEEKDAYS[d.getDay()], date: d.getDate() };
+  }
+
   return {
     todayKey: todayKey,
     addDays: addDays,
     addWeeks: addWeeks,
     mondayOf: mondayOf,
     weekDays: weekDays,
+    isAfter: isAfter,
+    monthWindow: monthWindow,
+    formatRange: formatRange,
     formatWeek: formatWeek,
-    formatDay: formatDay
+    formatDay: formatDay,
+    dayParts: dayParts
   };
 })();
