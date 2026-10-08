@@ -7,12 +7,26 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Shared hatch for "0 days" in the month view (both figures reference it). -->
+  <svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+        <rect class="hatch-bg" width="6" height="6"/>
+        <line class="hatch-line" x1="0" y1="0" x2="0" y2="6"/>
+      </pattern>
+    </defs>
+  </svg>
+
   <main class="app" id="app">
     <header class="topbar">
       <h1>Lift Tracker</h1>
+      <div class="mode-toggle" role="group" aria-label="View">
+        <button id="mode-week" type="button" aria-pressed="true">Week</button>
+        <button id="mode-month" type="button" aria-pressed="false">Month</button>
+      </div>
     </header>
 
-    <nav class="week-nav" aria-label="Week">
+    <nav class="week-nav" aria-label="Period">
       <button id="prev-week" class="nav-btn" type="button" aria-label="Previous week">&#8249;</button>
       <div class="week-info">
         <div id="week-label" class="week-label" aria-live="polite"></div>
@@ -33,11 +47,23 @@
       <div id="muscle-label" class="muscle-label" role="status" hidden></div>
     </section>
 
-    <ul class="legend" id="legend">
+    <ul class="legend" id="legend-week">
       <li><span class="swatch swatch-none"></span>Not trained this week</li>
       <li><span class="swatch swatch-week"></span>Trained other days this week</li>
       <li><span class="swatch swatch-day"></span><span id="legend-day">Logged today</span></li>
     </ul>
+
+    <div class="legend-month" id="legend-month" hidden>
+      <div class="legend-title">Days trained in these 30 days</div>
+      <ul class="legend">
+        <li><span class="swatch swatch-band0"></span>0</li>
+        <li><span class="swatch swatch-band1"></span>1</li>
+        <li><span class="swatch swatch-band2"></span>2&ndash;3</li>
+        <li><span class="swatch swatch-band3"></span>4&ndash;5</li>
+        <li><span class="swatch swatch-band4"></span>6&ndash;8</li>
+        <li><span class="swatch swatch-band5"></span>9+</li>
+      </ul>
+    </div>
   </main>
 
   <script src="js/muscles.js"></script>

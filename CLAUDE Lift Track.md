@@ -59,3 +59,13 @@ No streak mechanic for v1 — the weekly done/not-done view is the only consiste
 - How week boundaries work (calendar week vs. a rolling 7 days) for the done/not-done view.
 - SVG/diagram source: hand-drawn, generated, or licensed asset.
 - Exact tap/hover behaviour on touch devices (e.g. does a tap both reveal the label AND log the group, or does logging need a separate confirm step so you don't mis-tap).
+
+## Decisions made (v1 + V2)
+- **Week boundary:** calendar week, Mon–Sun, local time.
+- **Diagram:** hand-built simple SVG, one shape per muscle group; left/right sides share one tap target.
+- **Touch:** first tap selects + shows the name; tapping the selected muscle again toggles it. Mouse: hover shows the name, click toggles. Keyboard: focus shows the name, Enter/Space toggles, Escape clears.
+- **Day strip (V2):** Mon–Sun chips under the week nav. Taps log to the selected day. Any past or present day in any week is editable; future days are disabled. Defaults: today in the current week, Sunday when stepping to a past week.
+- **Week colours:** strong green = logged on the selected day; light green = trained on another day that week; grey = not trained that week.
+- **Month view (V2):** Week/Month toggle. Read-only. Rolling 30-day window (today + 29 days before); ‹ › step 30 days, › stops at today.
+- **Month bands (V2):** fixed day counts — 0 (hatched grey), 1, 2–3, 4–5, 6–8, 9+. Multi-hue coral → gold → green → blue → violet (warm = under-trained), palette validated for colour-blind separation in light and dark. Hover/tap shows "Name · N days".
+- **Tests:** open `tests/index.html` (via the local server) — covers week boundaries, the 30-day window and days with no data.

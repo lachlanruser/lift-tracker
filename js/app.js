@@ -1,8 +1,11 @@
-// Wiring: week navigation, day strip, label reveal, and tap/click-to-log.
-// Taps log to the day selected in the day strip (today by default).
-// Mouse: hover shows the name, click toggles the selected day's log.
-// Touch/pen: first tap selects + shows the name, tapping it again toggles.
-// Keyboard: focus shows the name, Enter/Space toggles, Escape clears.
+// Wiring: Week/Month modes, period navigation, day strip, label reveal, tap-to-log.
+//
+// Week mode: taps log to the day selected in the day strip (today by default).
+//   Mouse: hover shows the name, click toggles the selected day's log.
+//   Touch/pen: first tap selects + shows the name, tapping it again toggles.
+//   Keyboard: focus shows the name, Enter/Space toggles, Escape clears.
+// Month mode: read-only heatmap of days trained in a rolling 30-day window.
+//   Hover/tap/focus shows "Name · N days"; nothing toggles.
 
 (function () {
   var app = document.getElementById("app");
@@ -14,6 +17,10 @@
   var nextBtn = document.getElementById("next-week");
   var dayStrip = document.getElementById("day-strip");
   var legendDay = document.getElementById("legend-day");
+  var legendWeek = document.getElementById("legend-week");
+  var legendMonth = document.getElementById("legend-month");
+  var modeWeekBtn = document.getElementById("mode-week");
+  var modeMonthBtn = document.getElementById("mode-month");
 
   document.getElementById("figure-front").appendChild(Figure.build("front"));
   document.getElementById("figure-back").appendChild(Figure.build("back"));
@@ -30,8 +37,11 @@
     chips.push(chip);
   }
 
+  var mode = "week";                  // "week" | "month"
   var viewedMonday = currentMonday();
   var selectedDay = Dates.todayKey();
+  var monthEnd = Dates.todayKey();    // last day of the 30-day window
+  var monthCounts = {};
   var activeId = null;    // muscle whose label is showing
   var selectedId = null;  // touch selection (awaiting a second tap)
   var lastPointer = "mouse";
@@ -40,9 +50,9 @@
     return Dates.mondayOf(Dates.todayKey());
   }
 
-  // Any day up to and including today can be edited.
+  // Week mode only: any day up to and including today can be edited.
   function editable() {
-    return !Dates.isAfter(selectedDay, Dates.todayKey());
+    return mode === "week" && !Dates.isAfter(selectedDay, Dates.todayKey());
   }
 
   // Today for the current week, Sunday for past weeks.
@@ -54,15 +64,46 @@
     return day === today ? "today, " + Dates.formatDay(day) : Dates.formatDay(day);
   }
 
+  function countText(n) {
+    return n + (n === 1 ? " day" : " days");
+  }
+
+  function labelText(id) {
+    var name = MUSCLE_BY_ID[id].label;
+    return mode === "month" ? name + " · " + countText(monthCounts[id] || 0) : name;
+  }
+
   function render() {
     var today = Dates.todayKey();
+    var isMonth = mode === "month";
+
+    app.classList.toggle("view-only", isMonth);
+    dayStrip.hidden = isMonth;
+    legendWeek.hidden = isMonth;
+    legendMonth.hidden = !isMonth;
+    modeWeekBtn.setAttribute("aria-pressed", isMonth ? "false" : "true");
+    modeMonthBtn.setAttribute("aria-pressed", isMonth ? "true" : "false");
+    prevBtn.setAttribute("aria-label", isMonth ? "Previous 30 days" : "Previous week");
+    nextBtn.setAttribute("aria-label", isMonth ? "Next 30 days" : "Next week");
+
+    if (isMonth) renderMonth(today);
+    else renderWeek(today);
+
+    groups.forEach(function (g) {
+      g.classList.toggle("is-active", g.getAttribute("data-muscle") === activeId);
+    });
+    if (activeId) labelEl.textContent = labelText(activeId);
+  }
+
+  function renderWeek(today) {
     var status = Stats.weekStatus(Store.logs(), viewedMonday, selectedDay);
 
     groups.forEach(function (g) {
       var id = g.getAttribute("data-muscle");
+      g.removeAttribute("data-band");
       g.setAttribute("data-state", status[id]);
       g.setAttribute("aria-pressed", status[id] === "day" ? "true" : "false");
-      g.classList.toggle("is-active", id === activeId);
+      g.setAttribute("aria-label", MUSCLE_BY_ID[id].label);
     });
 
     Dates.weekDays(viewedMonday).forEach(function (day, i) {
@@ -83,6 +124,32 @@
     nextBtn.disabled = viewedMonday >= currentMonday();
   }
 
+  function renderMonth(today) {
+    if (Dates.isAfter(monthEnd, today)) monthEnd = today;
+    var w = Dates.monthWindow(monthEnd);
+    monthCounts = Stats.countDays(Store.logs(), w.start, w.end);
+
+    groups.forEach(function (g) {
+      var id = g.getAttribute("data-muscle");
+      g.removeAttribute("data-state");
+      g.removeAttribute("aria-pressed");
+      g.setAttribute("data-band", Stats.bandFor(monthCounts[id]));
+      g.setAttribute("aria-label", MUSCLE_BY_ID[id].label + ": " + countText(monthCounts[id]));
+    });
+
+    weekLabel.textContent = Dates.formatRange(w.start, w.end);
+    weekSub.textContent = (monthEnd === today ? "Last 30 days" : "30 days") + " · view only";
+    nextBtn.disabled = monthEnd >= today;
+  }
+
+  function setMode(next) {
+    if (next === mode) return;
+    clearLabel();
+    mode = next;
+    if (mode === "month") monthEnd = Dates.todayKey();
+    render();
+  }
+
   function onChipClick(e) {
     e.stopPropagation();
     var day = e.currentTarget.getAttribute("data-day");
@@ -99,9 +166,17 @@
     render();
   }
 
+  function stepMonth(days) {
+    clearLabel();
+    var end = Dates.addDays(monthEnd, days);
+    var today = Dates.todayKey();
+    monthEnd = Dates.isAfter(end, today) ? today : end;
+    render();
+  }
+
   function showLabel(id, target) {
     activeId = id;
-    labelEl.textContent = MUSCLE_BY_ID[id].label;
+    labelEl.textContent = labelText(id);
     labelEl.hidden = false;
 
     var box = target.getBoundingClientRect();
@@ -177,15 +252,22 @@
   document.addEventListener("click", clearLabel);
   window.addEventListener("resize", clearLabel);
 
+  modeWeekBtn.addEventListener("click", function (e) { e.stopPropagation(); setMode("week"); });
+  modeMonthBtn.addEventListener("click", function (e) { e.stopPropagation(); setMode("month"); });
+
   prevBtn.addEventListener("click", function (e) {
     e.stopPropagation();
-    goToWeek(Dates.addWeeks(viewedMonday, -1));
+    if (mode === "month") stepMonth(-30);
+    else goToWeek(Dates.addWeeks(viewedMonday, -1));
   });
 
   nextBtn.addEventListener("click", function (e) {
     e.stopPropagation();
-    if (viewedMonday >= currentMonday()) return;
-    goToWeek(Dates.addWeeks(viewedMonday, 1));
+    if (mode === "month") {
+      if (monthEnd < Dates.todayKey()) stepMonth(30);
+    } else if (viewedMonday < currentMonday()) {
+      goToWeek(Dates.addWeeks(viewedMonday, 1));
+    }
   });
 
   // Pick up a new day/week if the app was left open.
