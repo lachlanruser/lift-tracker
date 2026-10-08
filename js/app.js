@@ -291,6 +291,10 @@
     if (!document.hidden) render();
   });
   window.addEventListener("focus", render);
+  document.addEventListener("logs-imported", function () {
+    clearLabel();
+    render();
+  });
   // Also catch midnight while the tab stays visible and idle.
   setInterval(function () {
     if (Dates.todayKey() !== lastToday) render();

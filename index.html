@@ -64,13 +64,26 @@
         <li><span class="swatch swatch-band5"></span>9+</li>
       </ul>
     </div>
+
+    <section class="backup" id="backup" aria-labelledby="backup-title">
+      <h2 id="backup-title">Backup</h2>
+      <p id="backup-status" class="backup-status" aria-live="polite"></p>
+      <div class="backup-actions">
+        <button id="backup-auto" class="pill-btn" type="button" hidden>Set up auto-backup</button>
+        <button id="backup-export" class="pill-btn" type="button">Export</button>
+        <button id="backup-import" class="pill-btn" type="button">Import</button>
+        <input id="backup-file" type="file" accept=".json,application/json" hidden>
+      </div>
+    </section>
   </main>
 
   <script src="js/muscles.js"></script>
   <script src="js/dates.js"></script>
   <script src="js/stats.js"></script>
+  <script src="js/backup.js"></script>
   <script src="js/store.js"></script>
   <script src="js/figure.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/backup-ui.js"></script>
 </body>
 </html>

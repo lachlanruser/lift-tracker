@@ -317,6 +317,45 @@ body {
 .legend-month .swatch { width: 18px; }
 .legend-title { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
 
+/* Backup panel */
+
+.backup {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+
+.backup h2 {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.backup-status { margin: 0 0 10px; color: var(--muted); font-size: 13px; }
+.backup.needs-backup .backup-status { color: var(--ink); font-weight: 600; }
+
+.backup-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+.pill-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pill-btn:hover { background: var(--line); }
+.pill-btn:focus-visible { outline: 2px solid var(--today); outline-offset: 2px; }
+.backup.needs-backup #backup-export,
+.backup.needs-backup #backup-auto { border-color: var(--ink); font-weight: 600; }
+
 @media (max-width: 600px) {
   .stage { flex-direction: column; align-items: center; gap: 16px; }
   .figure { width: 100%; max-width: 280px; }

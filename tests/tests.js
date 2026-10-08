@@ -197,6 +197,59 @@
     });
   });
 
+  // ---------------------------------------------------------------- backup
+
+  describe("Backup export / import", function () {
+    function throws(fn, pattern) {
+      try { fn(); } catch (e) {
+        if (pattern.test(e.message)) return;
+        throw new Error("wrong error: " + e.message);
+      }
+      throw new Error("expected an error");
+    }
+
+    test("Export then import round-trips exactly", function () {
+      var logs = { "2026-10-08": ["chest", "triceps"], "2026-09-30": ["quads"] };
+      var text = Backup.serialize(logs, new Date("2026-10-08T10:00:00Z"));
+      var data = JSON.parse(text);
+      eq([data.app, data.version, data.exportedAt], ["lift-tracker", 1, "2026-10-08T10:00:00.000Z"]);
+      var back = Backup.parse(text);
+      eq(back.logs, logs);
+      eq([back.days, back.entries, back.skipped], [2, 3, 0]);
+    });
+    test("Export of empty logs imports as empty", function () {
+      eq(Backup.parse(Backup.serialize({})).logs, {});
+    });
+    test("Unknown muscles, bad dates and duplicates are dropped", function () {
+      var r = Backup.parse(JSON.stringify({ logs: {
+        "2026-10-08": ["chest", "neck", "chest"],
+        "2026-02-30": ["quads"],
+        "not-a-date": ["lats"],
+        "2026-10-07": "lats",
+        "2026-10-06": ["neck"]
+      } }));
+      eq(r.logs, { "2026-10-08": ["chest"] });
+      eq(r.skipped, 5);
+    });
+    test("Non-JSON and non-backup files are rejected", function () {
+      throws(function () { Backup.parse("hello"); }, /not JSON/);
+      throws(function () { Backup.parse("[1,2]"); }, /isn't a Lift Tracker backup/);
+      throws(function () { Backup.parse('{"foo":1}'); }, /isn't a Lift Tracker backup/);
+    });
+    test("Merge keeps everything from both and counts what was added", function () {
+      var current = { "2026-10-08": ["chest"], "2026-10-07": ["lats"] };
+      var incoming = { "2026-10-08": ["chest", "triceps"], "2026-10-01": ["quads"] };
+      eq(Stats.mergeInto(current, incoming), 2);
+      eq(current, { "2026-10-08": ["chest", "triceps"], "2026-10-07": ["lats"], "2026-10-01": ["quads"] });
+    });
+    test("Merging the same backup twice adds nothing", function () {
+      var current = { "2026-10-08": ["chest"] };
+      Stats.mergeInto(current, { "2026-10-08": ["chest"] });
+      eq(Stats.mergeInto(current, { "2026-10-08": ["chest"] }), 0);
+      eq(current, { "2026-10-08": ["chest"] });
+    });
+  });
+
   // ---------------------------------------------------------------- report
 
   var passed = results.filter(function (r) { return r.ok; }).length;

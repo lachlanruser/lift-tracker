@@ -59,5 +59,22 @@ var Stats = (function () {
     return i === -1;
   }
 
-  return { weekStatus: weekStatus, countDays: countDays, bandFor: bandFor, toggleIn: toggleIn };
+  // Union incoming into target in place: every muscle logged on a day in
+  // either is kept. Returns how many day+muscle entries were added.
+  function mergeInto(target, incoming) {
+    var added = 0;
+    Object.keys(incoming).forEach(function (day) {
+      var list = target[day] || [];
+      (incoming[day] || []).forEach(function (id) {
+        if (list.indexOf(id) === -1) {
+          list.push(id);
+          added++;
+        }
+      });
+      if (list.length) target[day] = list;
+    });
+    return added;
+  }
+
+  return { weekStatus: weekStatus, countDays: countDays, bandFor: bandFor, toggleIn: toggleIn, mergeInto: mergeInto };
 })();
