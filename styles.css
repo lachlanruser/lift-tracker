@@ -10,13 +10,14 @@
   --active-stroke: #1d1f1c;
   --label-bg: #1d1f1c;
   --label-ink: #ffffff;
-  /* Month bands (1, 2–3, 4–5, 6–8, 9+): warm = under-trained. Validated with
-     the dataviz palette checker against --bg in each mode. */
-  --band1: #ff8179;
-  --band2: #ab8900;
-  --band3: #008c6c;
-  --band4: #00619b;
-  --band5: #582683;
+  /* Month bands (1, 2–3, 4–5, 6–8, 9+): one green, light → dark = more days.
+     Dark mode flips (dark → light). Validated as an ordinal ramp against --bg
+     with the dataviz palette checker. 0 days uses the hatch, not a band. */
+  --band1: #6bbf7f;
+  --band2: #40a35c;
+  --band3: #1c8742;
+  --band4: #0f6a31;
+  --band5: #0b4d23;
   color-scheme: light;
 }
 
@@ -33,11 +34,11 @@
     --active-stroke: #e8eae6;
     --label-bg: #e8eae6;
     --label-ink: #161816;
-    --band1: #ffaaaa;
-    --band2: #c8b222;
-    --band3: #00b878;
-    --band4: #0096c5;
-    --band5: #735cc7;
+    --band1: #266739;
+    --band2: #2d8949;
+    --band3: #3eab5e;
+    --band4: #61cb7c;
+    --band5: #96e7a7;
     color-scheme: dark;
   }
 }
@@ -54,11 +55,11 @@
   --active-stroke: #e8eae6;
   --label-bg: #e8eae6;
   --label-ink: #161816;
-  --band1: #ffaaaa;
-  --band2: #c8b222;
-  --band3: #00b878;
-  --band4: #0096c5;
-  --band5: #735cc7;
+  --band1: #266739;
+  --band2: #2d8949;
+  --band3: #3eab5e;
+  --band4: #61cb7c;
+  --band5: #96e7a7;
   color-scheme: dark;
 }
 
