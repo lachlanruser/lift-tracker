@@ -42,6 +42,7 @@
   var selectedDay = Dates.todayKey();
   var monthEnd = Dates.todayKey();    // last day of the 30-day window
   var monthCounts = {};
+  var lastToday = Dates.todayKey();
   var activeId = null;    // muscle whose label is showing
   var selectedId = null;  // touch selection (awaiting a second tap)
   var lastPointer = "mouse";
@@ -73,7 +74,21 @@
     return mode === "month" ? name + " · " + countText(monthCounts[id] || 0) : name;
   }
 
+  // Midnight rollover: if the app stayed open into a new day, move views that
+  // were on today onto the new today, so taps don't land on yesterday.
+  function syncToday() {
+    var today = Dates.todayKey();
+    if (today === lastToday) return;
+    var v = Dates.followToday(
+      { viewedMonday: viewedMonday, selectedDay: selectedDay, monthEnd: monthEnd }, lastToday, today);
+    viewedMonday = v.viewedMonday;
+    selectedDay = v.selectedDay;
+    monthEnd = v.monthEnd;
+    lastToday = today;
+  }
+
   function render() {
+    syncToday();
     var today = Dates.todayKey();
     var isMonth = mode === "month";
 
@@ -200,6 +215,7 @@
   }
 
   function toggle(id) {
+    syncToday();
     if (!editable()) {
       render();
       return;
@@ -275,6 +291,10 @@
     if (!document.hidden) render();
   });
   window.addEventListener("focus", render);
+  // Also catch midnight while the tab stays visible and idle.
+  setInterval(function () {
+    if (Dates.todayKey() !== lastToday) render();
+  }, 60000);
 
   render();
 })();

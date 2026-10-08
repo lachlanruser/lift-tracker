@@ -58,6 +58,20 @@ var Dates = (function () {
     return { start: addDays(end, -29), end: end };
   }
 
+  // When the date changes while the app is open, views that were on "today"
+  // move to the new today. A deliberately chosen past day/window is kept.
+  // view = { viewedMonday, selectedDay, monthEnd }
+  function followToday(view, lastToday, today) {
+    var out = { viewedMonday: view.viewedMonday, selectedDay: view.selectedDay, monthEnd: view.monthEnd };
+    if (lastToday === today) return out;
+    if (view.selectedDay === lastToday) {
+      out.selectedDay = today;
+      out.viewedMonday = mondayOf(today);
+    }
+    if (view.monthEnd === lastToday) out.monthEnd = today;
+    return out;
+  }
+
   // "21 – 27 Sep 2026", "28 Sep – 4 Oct 2026", "29 Dec 2025 – 4 Jan 2026".
   function formatRange(start, end) {
     var a = parseKey(start);
@@ -93,6 +107,7 @@ var Dates = (function () {
     weekDays: weekDays,
     isAfter: isAfter,
     monthWindow: monthWindow,
+    followToday: followToday,
     formatRange: formatRange,
     formatWeek: formatWeek,
     formatDay: formatDay,

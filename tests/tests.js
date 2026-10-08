@@ -175,6 +175,28 @@
     });
   });
 
+  // ---------------------------------------------------------------- midnight
+
+  describe("Midnight rollover", function () {
+    var view = { viewedMonday: "2026-10-05", selectedDay: "2026-10-08", monthEnd: "2026-10-08" };
+    test("Same day: nothing changes", function () {
+      eq(Dates.followToday(view, "2026-10-08", "2026-10-08"), view);
+    });
+    test("Selected today -> follows to the new today", function () {
+      eq(Dates.followToday(view, "2026-10-08", "2026-10-09"),
+        { viewedMonday: "2026-10-05", selectedDay: "2026-10-09", monthEnd: "2026-10-09" });
+    });
+    test("Sunday -> Monday rollover moves to the new week", function () {
+      var sun = { viewedMonday: "2026-10-05", selectedDay: "2026-10-11", monthEnd: "2026-10-11" };
+      eq(Dates.followToday(sun, "2026-10-11", "2026-10-12"),
+        { viewedMonday: "2026-10-12", selectedDay: "2026-10-12", monthEnd: "2026-10-12" });
+    });
+    test("A deliberately chosen past day or window is kept", function () {
+      var past = { viewedMonday: "2026-09-28", selectedDay: "2026-10-01", monthEnd: "2026-09-08" };
+      eq(Dates.followToday(past, "2026-10-08", "2026-10-09"), past);
+    });
+  });
+
   // ---------------------------------------------------------------- report
 
   var passed = results.filter(function (r) { return r.ok; }).length;
