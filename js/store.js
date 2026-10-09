@@ -1,4 +1,5 @@
-// Session logs in one localStorage key: { logs: { "YYYY-MM-DD": [muscleId, ...] } }.
+// Session logs and weekly plans in one localStorage key:
+// { logs: { "YYYY-MM-DD": [muscleId, ...] }, plans: { "<Monday>": { "<0-6>": [muscleId, ...] } } }
 // Backup bookkeeping (last backup time) lives in a separate key.
 // Falls back to in-memory state if storage is unavailable.
 
@@ -13,11 +14,14 @@ var Store = (function () {
     try {
       var raw = localStorage.getItem(KEY);
       var parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && parsed.logs && typeof parsed.logs === "object") return { logs: parsed.logs };
+      if (parsed && parsed.logs && typeof parsed.logs === "object") {
+        var plans = parsed.plans && typeof parsed.plans === "object" ? parsed.plans : {};
+        return { logs: parsed.logs, plans: plans };
+      }
     } catch (e) {
       // Corrupt or blocked storage — start empty.
     }
-    return { logs: {} };
+    return { logs: {}, plans: {} };
   }
 
   function loadMeta() {
@@ -42,7 +46,30 @@ var Store = (function () {
 
   function logs() { return state.logs; }
 
-  function isEmpty() { return Object.keys(state.logs).length === 0; }
+  function plans() { return state.plans; }
+
+  function isEmpty() {
+    return Object.keys(state.logs).length === 0 &&
+      Object.keys(state.plans).every(function (w) { return Plans.isEmpty(state.plans[w]); });
+  }
+
+  // Toggle id on the plan for day idx (0 = Mon) of the week starting monday.
+  function togglePlan(monday, idx, id) {
+    var planned = Plans.toggleIn(state.plans, monday, idx, id);
+    save();
+    notify();
+    return planned;
+  }
+
+  // Weekly carry-forward up to currentMonday. Saves only if weeks were created.
+  function ensurePlans(currentMonday) {
+    var created = Plans.carryForward(state.plans, currentMonday);
+    if (created.length) {
+      save();
+      notify();
+    }
+    return created;
+  }
 
   // Add or remove id from day's log. Returns true if now logged.
   function toggle(day, id) {
@@ -52,12 +79,14 @@ var Store = (function () {
     return logged;
   }
 
-  // Merge imported logs in (nothing existing is removed). Returns entries added.
-  function mergeIn(incoming) {
-    var added = Stats.mergeInto(state.logs, incoming);
+  // Merge imported logs in (nothing existing is removed) and add plan weeks we
+  // don't have (existing weeks keep their version). Returns { entries, weeks }.
+  function mergeIn(incomingLogs, incomingPlans) {
+    var entries = Stats.mergeInto(state.logs, incomingLogs);
+    var weeks = Plans.mergeMissing(state.plans, incomingPlans || {});
     save();
     notify();
-    return added;
+    return { entries: entries, weeks: weeks };
   }
 
   function onChange(fn) { listeners.push(fn); }
@@ -75,7 +104,10 @@ var Store = (function () {
 
   return {
     logs: logs,
+    plans: plans,
     isEmpty: isEmpty,
+    togglePlan: togglePlan,
+    ensurePlans: ensurePlans,
     toggle: toggle,
     mergeIn: mergeIn,
     onChange: onChange,

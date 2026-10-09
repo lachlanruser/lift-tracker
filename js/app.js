@@ -1,11 +1,16 @@
-// Wiring: Week/Month modes, period navigation, day strip, label reveal, tap-to-log.
+// Wiring: Week/Month/Plan modes, period navigation, day strip, label reveal, tap-to-toggle.
 //
 // Week mode: taps log to the day selected in the day strip (today by default).
+//   The selected day's planned muscles show red dots over the usual colours.
 //   Mouse: hover shows the name, click toggles the selected day's log.
 //   Touch/pen: first tap selects + shows the name, tapping it again toggles.
 //   Keyboard: focus shows the name, Enter/Space toggles, Escape clears.
 // Month mode: read-only heatmap of days trained in a rolling 30-day window.
 //   Hover/tap/focus shows "Name · N days"; nothing toggles.
+// Plan mode: same interactions, but taps toggle the selected day's plan.
+//   Only the current week's plan is editable (all 7 days); past weeks are
+//   view-only. Plans carry forward into new weeks (see Plans.carryForward).
+// Week and Plan share the viewed week and selected day.
 
 (function () {
   var app = document.getElementById("app");
@@ -18,9 +23,16 @@
   var dayStrip = document.getElementById("day-strip");
   var legendDay = document.getElementById("legend-day");
   var legendWeek = document.getElementById("legend-week");
+  var legendWeekPlan = document.getElementById("legend-week-plan");
+  var legendWeekPlanText = document.getElementById("legend-week-plan-text");
   var legendMonth = document.getElementById("legend-month");
-  var modeWeekBtn = document.getElementById("mode-week");
-  var modeMonthBtn = document.getElementById("mode-month");
+  var legendPlan = document.getElementById("legend-plan");
+  var legendPlanText = document.getElementById("legend-plan-text");
+  var modeBtns = {
+    week: document.getElementById("mode-week"),
+    month: document.getElementById("mode-month"),
+    plan: document.getElementById("mode-plan")
+  };
 
   document.getElementById("figure-front").appendChild(Figure.build("front"));
   document.getElementById("figure-back").appendChild(Figure.build("back"));
@@ -37,7 +49,7 @@
     chips.push(chip);
   }
 
-  var mode = "week";                  // "week" | "month"
+  var mode = "week";                  // "week" | "month" | "plan"
   var viewedMonday = currentMonday();
   var selectedDay = Dates.todayKey();
   var monthEnd = Dates.todayKey();    // last day of the 30-day window
@@ -51,9 +63,12 @@
     return Dates.mondayOf(Dates.todayKey());
   }
 
-  // Week mode only: any day up to and including today can be edited.
+  // Week: any day up to and including today. Plan: any day of the current
+  // week only. Month: never.
   function editable() {
-    return mode === "week" && !Dates.isAfter(selectedDay, Dates.todayKey());
+    if (mode === "week") return !Dates.isAfter(selectedDay, Dates.todayKey());
+    if (mode === "plan") return viewedMonday === currentMonday();
+    return false;
   }
 
   // Today for the current week, Sunday for past weeks.
@@ -74,8 +89,13 @@
     return mode === "month" ? name + " · " + countText(monthCounts[id] || 0) : name;
   }
 
+  function plannedForSelectedDay() {
+    return Plans.dayList(Store.plans(), viewedMonday, Plans.dayIndex(selectedDay));
+  }
+
   // Midnight rollover: if the app stayed open into a new day, move views that
-  // were on today onto the new today, so taps don't land on yesterday.
+  // were on today onto the new today, so taps don't land on yesterday. A new
+  // week also triggers the plan carry-forward.
   function syncToday() {
     var today = Dates.todayKey();
     if (today === lastToday) return;
@@ -85,23 +105,26 @@
     selectedDay = v.selectedDay;
     monthEnd = v.monthEnd;
     lastToday = today;
+    Store.ensurePlans(currentMonday());
   }
 
   function render() {
     syncToday();
     var today = Dates.todayKey();
-    var isMonth = mode === "month";
 
-    app.classList.toggle("view-only", isMonth);
-    dayStrip.hidden = isMonth;
-    legendWeek.hidden = isMonth;
-    legendMonth.hidden = !isMonth;
-    modeWeekBtn.setAttribute("aria-pressed", isMonth ? "false" : "true");
-    modeMonthBtn.setAttribute("aria-pressed", isMonth ? "true" : "false");
-    prevBtn.setAttribute("aria-label", isMonth ? "Previous 30 days" : "Previous week");
-    nextBtn.setAttribute("aria-label", isMonth ? "Next 30 days" : "Next week");
+    app.classList.toggle("view-only", !editable() && mode !== "week");
+    dayStrip.hidden = mode === "month";
+    legendWeek.hidden = mode !== "week";
+    legendMonth.hidden = mode !== "month";
+    legendPlan.hidden = mode !== "plan";
+    Object.keys(modeBtns).forEach(function (m) {
+      modeBtns[m].setAttribute("aria-pressed", m === mode ? "true" : "false");
+    });
+    prevBtn.setAttribute("aria-label", mode === "month" ? "Previous 30 days" : "Previous week");
+    nextBtn.setAttribute("aria-label", mode === "month" ? "Next 30 days" : "Next week");
 
-    if (isMonth) renderMonth(today);
+    if (mode === "month") renderMonth(today);
+    else if (mode === "plan") renderPlan(today);
     else renderWeek(today);
 
     groups.forEach(function (g) {
@@ -110,32 +133,71 @@
     if (activeId) labelEl.textContent = labelText(activeId);
   }
 
-  function renderWeek(today) {
-    var status = Stats.weekStatus(Store.logs(), viewedMonday, selectedDay);
-
-    groups.forEach(function (g) {
-      var id = g.getAttribute("data-muscle");
-      g.removeAttribute("data-band");
-      g.setAttribute("data-state", status[id]);
-      g.setAttribute("aria-pressed", status[id] === "day" ? "true" : "false");
-      g.setAttribute("aria-label", MUSCLE_BY_ID[id].label);
-    });
-
+  function renderChips(today, allowFuture) {
     Dates.weekDays(viewedMonday).forEach(function (day, i) {
       var parts = Dates.dayParts(day);
       var chip = chips[i];
       chip.setAttribute("data-day", day);
       chip.setAttribute("aria-label", Dates.formatDay(day) + (day === today ? " (today)" : ""));
       chip.setAttribute("aria-pressed", day === selectedDay ? "true" : "false");
-      chip.disabled = Dates.isAfter(day, today);
+      chip.disabled = !allowFuture && Dates.isAfter(day, today);
       chip.classList.toggle("is-today", day === today);
       chip.firstChild.textContent = parts.dow;
       chip.lastChild.textContent = parts.date;
     });
+  }
 
+  function plannedText(today) {
+    return selectedDay === today ? "Planned today" : "Planned " + Dates.formatDay(selectedDay);
+  }
+
+  function renderWeek(today) {
+    // A future day picked in Plan isn't loggable; fall back to today.
+    if (Dates.isAfter(selectedDay, today)) selectedDay = today;
+    var status = Stats.weekStatus(Store.logs(), viewedMonday, selectedDay);
+    var planned = plannedForSelectedDay();
+
+    groups.forEach(function (g) {
+      var id = g.getAttribute("data-muscle");
+      var isPlanned = planned.indexOf(id) !== -1;
+      g.removeAttribute("data-band");
+      g.setAttribute("data-state", status[id]);
+      g.setAttribute("data-planned", isPlanned ? "true" : "false");
+      g.setAttribute("aria-pressed", status[id] === "day" ? "true" : "false");
+      g.setAttribute("aria-label", MUSCLE_BY_ID[id].label + (isPlanned ? ", planned" : ""));
+    });
+
+    renderChips(today, false);
     weekLabel.textContent = Dates.formatWeek(viewedMonday);
     weekSub.textContent = "Logging for " + dayText(selectedDay, today);
     legendDay.textContent = selectedDay === today ? "Logged today" : "Logged " + Dates.formatDay(selectedDay);
+    // Only mention the plan once this week actually has one.
+    legendWeekPlan.hidden = Plans.isEmpty(Store.plans()[viewedMonday]);
+    legendWeekPlanText.textContent = plannedText(today);
+    nextBtn.disabled = viewedMonday >= currentMonday();
+  }
+
+  function renderPlan(today) {
+    var isCurrent = viewedMonday === currentMonday();
+    var planned = plannedForSelectedDay();
+
+    groups.forEach(function (g) {
+      var id = g.getAttribute("data-muscle");
+      var isPlanned = planned.indexOf(id) !== -1;
+      g.removeAttribute("data-band");
+      g.setAttribute("data-state", "none");
+      g.setAttribute("data-planned", isPlanned ? "true" : "false");
+      if (isCurrent) g.setAttribute("aria-pressed", isPlanned ? "true" : "false");
+      else g.removeAttribute("aria-pressed");
+      g.setAttribute("aria-label", MUSCLE_BY_ID[id].label + (isPlanned ? ", planned" : ""));
+    });
+
+    renderChips(today, true);
+    weekLabel.textContent = Dates.formatWeek(viewedMonday);
+    weekSub.textContent = isCurrent
+      ? "Planning for " + dayText(selectedDay, today)
+      : "Past week · plan is view only";
+    legendPlanText.textContent = plannedText(today);
     nextBtn.disabled = viewedMonday >= currentMonday();
   }
 
@@ -147,6 +209,7 @@
     groups.forEach(function (g) {
       var id = g.getAttribute("data-muscle");
       g.removeAttribute("data-state");
+      g.removeAttribute("data-planned");
       g.removeAttribute("aria-pressed");
       g.setAttribute("data-band", Stats.bandFor(monthCounts[id]));
       g.setAttribute("aria-label", MUSCLE_BY_ID[id].label + ": " + countText(monthCounts[id]));
@@ -168,7 +231,7 @@
   function onChipClick(e) {
     e.stopPropagation();
     var day = e.currentTarget.getAttribute("data-day");
-    if (Dates.isAfter(day, Dates.todayKey())) return;
+    if (mode !== "plan" && Dates.isAfter(day, Dates.todayKey())) return;
     clearLabel();
     selectedDay = day;
     render();
@@ -220,7 +283,8 @@
       render();
       return;
     }
-    Store.toggle(selectedDay, id);
+    if (mode === "plan") Store.togglePlan(viewedMonday, Plans.dayIndex(selectedDay), id);
+    else Store.toggle(selectedDay, id);
     render();
   }
 
@@ -268,8 +332,9 @@
   document.addEventListener("click", clearLabel);
   window.addEventListener("resize", clearLabel);
 
-  modeWeekBtn.addEventListener("click", function (e) { e.stopPropagation(); setMode("week"); });
-  modeMonthBtn.addEventListener("click", function (e) { e.stopPropagation(); setMode("month"); });
+  Object.keys(modeBtns).forEach(function (m) {
+    modeBtns[m].addEventListener("click", function (e) { e.stopPropagation(); setMode(m); });
+  });
 
   prevBtn.addEventListener("click", function (e) {
     e.stopPropagation();
@@ -292,6 +357,7 @@
   });
   window.addEventListener("focus", render);
   document.addEventListener("logs-imported", function () {
+    Store.ensurePlans(currentMonday());
     clearLabel();
     render();
   });
@@ -300,5 +366,7 @@
     if (Dates.todayKey() !== lastToday) render();
   }, 60000);
 
+  // Carry last week's plan forward (and fill any skipped weeks) on open.
+  Store.ensurePlans(currentMonday());
   render();
 })();

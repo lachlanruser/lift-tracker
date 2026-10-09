@@ -107,7 +107,7 @@
         return;
       }
       return handle.createWritable().then(function (w) {
-        return w.write(Backup.serialize(Store.logs())).then(function () { return w.close(); });
+        return w.write(Backup.serialize(Store.logs(), Store.plans())).then(function () { return w.close(); });
       }).then(function () {
         autoState = "on";
         Store.markBackedUp();
@@ -151,7 +151,7 @@
   // ---------------------------------------------------------- export / import
 
   exportBtn.addEventListener("click", function () {
-    var blob = new Blob([Backup.serialize(Store.logs())], { type: "application/json" });
+    var blob = new Blob([Backup.serialize(Store.logs(), Store.plans())], { type: "application/json" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
@@ -175,10 +175,13 @@
     if (!file) return;
     file.text().then(function (text) {
       var result = Backup.parse(text);
-      var added = Store.mergeIn(result.logs);
+      var added = Store.mergeIn(result.logs, result.plans);
       document.dispatchEvent(new Event("logs-imported"));
+      var news = [];
+      if (added.entries) news.push(added.entries + " new " + (added.entries === 1 ? "entry" : "entries"));
+      if (added.weeks) news.push(added.weeks + " planned " + (added.weeks === 1 ? "week" : "weeks"));
       message = "Imported " + result.days + (result.days === 1 ? " day" : " days") + " — " +
-        (added ? added + " new " + (added === 1 ? "entry" : "entries") + " added." : "nothing new, already up to date.") +
+        (news.length ? news.join(" and ") + " added." : "nothing new, already up to date.") +
         (result.skipped ? " (" + result.skipped + " unrecognised item(s) skipped.)" : "");
       renderStatus();
     }).catch(function (e) {

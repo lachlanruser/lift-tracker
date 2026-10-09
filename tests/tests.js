@@ -210,9 +210,9 @@
 
     test("Export then import round-trips exactly", function () {
       var logs = { "2026-10-08": ["chest", "triceps"], "2026-09-30": ["quads"] };
-      var text = Backup.serialize(logs, new Date("2026-10-08T10:00:00Z"));
+      var text = Backup.serialize(logs, {}, new Date("2026-10-08T10:00:00Z"));
       var data = JSON.parse(text);
-      eq([data.app, data.version, data.exportedAt], ["lift-tracker", 1, "2026-10-08T10:00:00.000Z"]);
+      eq([data.app, data.version, data.exportedAt], ["lift-tracker", 2, "2026-10-08T10:00:00.000Z"]);
       var back = Backup.parse(text);
       eq(back.logs, logs);
       eq([back.days, back.entries, back.skipped], [2, 3, 0]);
@@ -247,6 +247,147 @@
       Stats.mergeInto(current, { "2026-10-08": ["chest"] });
       eq(Stats.mergeInto(current, { "2026-10-08": ["chest"] }), 0);
       eq(current, { "2026-10-08": ["chest"] });
+    });
+  });
+
+  // ---------------------------------------------------------------- plans
+
+  describe("Plan: day index and editing", function () {
+    test("dayIndex is Monday-based: Mon 0 … Sun 6", function () {
+      eq(["2026-10-05", "2026-10-07", "2026-10-11"].map(Plans.dayIndex), [0, 2, 6]);
+      eq(Plans.dayIndex("2026-01-04"), 6); // Sunday across a year start
+    });
+    test("toggleIn adds and removes; an emptied week keeps its record", function () {
+      var plans = {};
+      eq(Plans.toggleIn(plans, "2026-10-05", 2, "chest"), true);
+      eq(Plans.dayList(plans, "2026-10-05", 2), ["chest"]);
+      eq(Plans.toggleIn(plans, "2026-10-05", 2, "chest"), false);
+      eq(plans, { "2026-10-05": {} });
+      eq(Plans.isEmpty(plans["2026-10-05"]), true);
+    });
+    test("dayList is empty for unplanned weeks and days", function () {
+      eq(Plans.dayList({}, "2026-10-05", 0), []);
+      eq(Plans.dayList({ "2026-10-05": { 1: ["lats"] } }, "2026-10-05", 0), []);
+    });
+  });
+
+  describe("Plan carry-forward: week rollover", function () {
+    function split() { return { "2026-10-05": { 0: ["chest", "triceps"], 2: ["lats"], 4: ["quads"] } }; }
+    test("Sun -> Mon copies last week's plan into the new week", function () {
+      var plans = split();
+      eq(Plans.carryForward(plans, "2026-10-12"), ["2026-10-12"]);
+      eq(plans["2026-10-12"], plans["2026-10-05"]);
+    });
+    test("Opening again in the same week creates nothing", function () {
+      var plans = split();
+      Plans.carryForward(plans, "2026-10-12");
+      eq(Plans.carryForward(plans, "2026-10-12"), []);
+    });
+    test("The current week with its own plan is never overwritten", function () {
+      var plans = split();
+      eq(Plans.carryForward(plans, "2026-10-05"), []);
+      eq(plans, split());
+    });
+    test("Copies are independent: editing the new week leaves history alone", function () {
+      var plans = split();
+      Plans.carryForward(plans, "2026-10-12");
+      Plans.toggleIn(plans, "2026-10-12", 0, "biceps");
+      Plans.toggleIn(plans, "2026-10-12", 2, "lats");
+      eq(plans["2026-10-05"], split()["2026-10-05"]);
+      eq(plans["2026-10-12"], { 0: ["chest", "triceps", "biceps"], 4: ["quads"] });
+    });
+    test("Mid-week edits carry into next week (copy is taken when the week starts)", function () {
+      var plans = split();
+      Plans.toggleIn(plans, "2026-10-05", 6, "calves"); // edited on, say, Thursday
+      Plans.carryForward(plans, "2026-10-12");
+      eq(plans["2026-10-12"][6], ["calves"]);
+    });
+    test("Rollover across the year boundary", function () {
+      var plans = { "2025-12-29": { 3: ["glutes"] } };
+      eq(Plans.carryForward(plans, "2026-01-05"), ["2026-01-05"]);
+      eq(plans["2026-01-05"], { 3: ["glutes"] });
+    });
+  });
+
+  describe("Plan carry-forward: previous week had no plan", function () {
+    test("No plans at all -> new week starts empty, nothing stored", function () {
+      var plans = {};
+      eq(Plans.carryForward(plans, "2026-10-12"), []);
+      eq(plans, {});
+    });
+    test("Previous week's plan was cleared -> new week starts empty", function () {
+      var plans = { "2026-09-28": { 0: ["chest"] }, "2026-10-05": {} };
+      eq(Plans.carryForward(plans, "2026-10-12"), []);
+      eq("2026-10-12" in plans, false);
+    });
+    test("A cleared current week is never refilled", function () {
+      var plans = { "2026-10-05": { 0: ["chest"] }, "2026-10-12": {} };
+      eq(Plans.carryForward(plans, "2026-10-12"), []);
+      eq(plans["2026-10-12"], {});
+    });
+  });
+
+  describe("Plan carry-forward: skipped weeks", function () {
+    test("Plan in week 1, reopened in week 4 -> weeks 2, 3 and 4 each get a copy", function () {
+      var plans = { "2026-09-21": { 1: ["hamstrings"] } };
+      eq(Plans.carryForward(plans, "2026-10-12"), ["2026-09-28", "2026-10-05", "2026-10-12"]);
+      eq(plans["2026-09-28"], { 1: ["hamstrings"] });
+      eq(plans["2026-10-12"], { 1: ["hamstrings"] });
+    });
+    test("Gap copies are independent of each other", function () {
+      var plans = { "2026-09-21": { 1: ["hamstrings"] } };
+      Plans.carryForward(plans, "2026-10-12");
+      Plans.toggleIn(plans, "2026-10-12", 1, "hamstrings");
+      eq(plans["2026-09-28"], { 1: ["hamstrings"] });
+      eq(plans["2026-10-05"], { 1: ["hamstrings"] });
+    });
+    test("Fills from the latest plan before the gap", function () {
+      var plans = { "2026-09-14": { 0: ["chest"] }, "2026-09-28": { 0: ["lats"] } };
+      Plans.carryForward(plans, "2026-10-12");
+      eq("2026-09-21" in plans, false); // before the latest plan: untouched
+      eq(plans["2026-10-12"], { 0: ["lats"] });
+    });
+    test("Latest record before the gap is empty -> the gap is not filled", function () {
+      var plans = { "2026-09-14": { 0: ["chest"] }, "2026-09-21": {} };
+      eq(Plans.carryForward(plans, "2026-10-12"), []);
+    });
+    test("Never creates weeks after the current week", function () {
+      var plans = { "2026-10-05": { 0: ["chest"] } };
+      Plans.carryForward(plans, "2026-10-19");
+      eq(Object.keys(plans).sort(), ["2026-10-05", "2026-10-12", "2026-10-19"]);
+    });
+    test("A stray future record (clock moved back) is ignored", function () {
+      var plans = { "2026-10-05": { 0: ["chest"] }, "2026-11-02": { 0: ["calves"] } };
+      eq(Plans.carryForward(plans, "2026-10-12"), ["2026-10-12"]);
+      eq(plans["2026-10-12"], { 0: ["chest"] });
+    });
+  });
+
+  describe("Plan backups", function () {
+    test("mergeMissing adds only weeks you don't have", function () {
+      var mine = { "2026-10-05": { 0: ["chest"] }, "2026-10-12": {} };
+      var backup = { "2026-09-28": { 1: ["lats"] }, "2026-10-05": { 0: ["quads"] }, "2026-10-12": { 2: ["calves"] } };
+      eq(Plans.mergeMissing(mine, backup), 1);
+      eq(mine, { "2026-09-28": { 1: ["lats"] }, "2026-10-05": { 0: ["chest"] }, "2026-10-12": {} });
+    });
+    test("v2 backup round-trips plans (including a cleared week)", function () {
+      var plans = { "2026-10-05": { 0: ["chest"], 6: ["calves"] }, "2026-10-12": {} };
+      var r = Backup.parse(Backup.serialize({ "2026-10-08": ["chest"] }, plans));
+      eq(r.plans, plans);
+      eq(r.weeks, 2);
+    });
+    test("v1 backup (no plans) still imports", function () {
+      var r = Backup.parse(JSON.stringify({ app: "lift-tracker", version: 1, logs: { "2026-10-08": ["chest"] } }));
+      eq([r.logs, r.plans], [{ "2026-10-08": ["chest"] }, {}]);
+    });
+    test("Invalid plan keys are skipped", function () {
+      var r = Backup.parse(JSON.stringify({ logs: {}, plans: {
+        "2026-10-07": { 0: ["chest"] },              // a Wednesday, not a Monday
+        "2026-10-05": { 7: ["chest"], 1: ["neck", "lats"] },
+        "nope": {}
+      } }));
+      eq(r.plans, { "2026-10-05": { 1: ["lats"] } });
+      eq(r.skipped, 4);
     });
   });
 

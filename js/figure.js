@@ -1,6 +1,7 @@
 // Hand-built front/back figures. viewBox 0 0 200 460, centre line x = 100.
 // Paired muscles are drawn on the left half and mirrored; both halves share
-// one <g data-muscle> so they highlight and toggle together.
+// one <g data-muscle> so they highlight and toggle together. Each muscle also
+// gets a hidden "plan-dots" copy of its paths for the Plan overlay.
 
 var Figure = (function () {
   var NS = "http://www.w3.org/2000/svg";
@@ -79,6 +80,8 @@ var Figure = (function () {
         "aria-pressed": "false"
       });
       addPath(g, row[1], row[2]);
+      // Red-dot plan overlay above the colour fill; shown via data-planned.
+      addPath(g, row[1], row[2], "plan-dots");
       svg.appendChild(g);
     });
 

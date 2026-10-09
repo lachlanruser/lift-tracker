@@ -14,6 +14,11 @@
         <rect class="hatch-bg" width="6" height="6"/>
         <line class="hatch-line" x1="0" y1="0" x2="0" y2="6"/>
       </pattern>
+      <!-- Red dots for planned muscles; transparent between dots so the colour underneath shows. -->
+      <pattern id="plan-dots" patternUnits="userSpaceOnUse" width="8" height="8">
+        <circle class="plan-dot" cx="2" cy="2" r="1.15"/>
+        <circle class="plan-dot" cx="6" cy="6" r="1.15"/>
+      </pattern>
     </defs>
   </svg>
 
@@ -23,6 +28,7 @@
       <div class="mode-toggle" role="group" aria-label="View">
         <button id="mode-week" type="button" aria-pressed="true">Week</button>
         <button id="mode-month" type="button" aria-pressed="false">Month</button>
+        <button id="mode-plan" type="button" aria-pressed="false">Plan</button>
       </div>
     </header>
 
@@ -51,6 +57,11 @@
       <li><span class="swatch swatch-none"></span>Not trained this week</li>
       <li><span class="swatch swatch-week"></span>Trained other days this week</li>
       <li><span class="swatch swatch-day"></span><span id="legend-day">Logged today</span></li>
+      <li id="legend-week-plan" hidden><span class="swatch swatch-plan"></span><span id="legend-week-plan-text">Planned</span></li>
+    </ul>
+
+    <ul class="legend" id="legend-plan" hidden>
+      <li><span class="swatch swatch-plan"></span><span id="legend-plan-text">Planned</span></li>
     </ul>
 
     <div class="legend-month" id="legend-month" hidden>
@@ -80,6 +91,7 @@
   <script src="js/muscles.js"></script>
   <script src="js/dates.js"></script>
   <script src="js/stats.js"></script>
+  <script src="js/plans.js"></script>
   <script src="js/backup.js"></script>
   <script src="js/store.js"></script>
   <script src="js/figure.js"></script>

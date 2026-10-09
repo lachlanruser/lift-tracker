@@ -18,6 +18,7 @@
   --band3: #1c8742;
   --band4: #0f6a31;
   --band5: #0b4d23;
+  --plan: #d62828;
   color-scheme: light;
 }
 
@@ -39,6 +40,7 @@
     --band3: #3eab5e;
     --band4: #61cb7c;
     --band5: #96e7a7;
+    --plan: #ff6b6b;
     color-scheme: dark;
   }
 }
@@ -60,6 +62,7 @@
   --band3: #3eab5e;
   --band4: #61cb7c;
   --band5: #96e7a7;
+  --plan: #ff6b6b;
   color-scheme: dark;
 }
 
@@ -255,6 +258,18 @@ body {
 .muscle[data-band="4"] path { fill: var(--band4); }
 .muscle[data-band="5"] path { fill: var(--band5); }
 
+/* Plan overlay: red dots on top of whatever colour the muscle has. Uses
+   !important so state/band fill rules never repaint the overlay. */
+.muscle path.plan-dots {
+  display: none;
+  fill: url(#plan-dots) !important;
+  stroke: none !important;
+  filter: none !important;
+  pointer-events: none;
+}
+.muscle[data-planned="true"] path.plan-dots { display: inline; }
+.plan-dot { fill: var(--plan); }
+
 .hatch-bg { fill: var(--none); }
 .hatch-line { stroke: var(--bg); stroke-width: 2; }
 
@@ -305,6 +320,11 @@ body {
 
 .swatch-band0 {
   background: repeating-linear-gradient(45deg, var(--none) 0 2.5px, var(--bg) 2.5px 4px);
+}
+.swatch-plan {
+  background-color: var(--none);
+  background-image: radial-gradient(circle, var(--plan) 1.4px, transparent 1.6px);
+  background-size: 5px 5px;
 }
 .swatch-band1 { background: var(--band1); }
 .swatch-band2 { background: var(--band2); }
