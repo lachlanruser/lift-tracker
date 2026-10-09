@@ -39,10 +39,23 @@ Notes:
 - Monthly or custom-range stats (start with the current week's done/not-done view only; longer-range stats can come later).
 - Colour coding by recency or frequency — v1 is simple done/not-done for the week, not a gradient.
 
+## Plan tab (V3)
+A third tab, Plan, sits next to Week and Month. It holds the split I've planned for the week.
+
+- Default is no plan. Until I configure it, every day is empty and the Week view looks exactly as it does now.
+- Configuring: the Plan tab uses the same front/back diagram and Mon–Sun day strip. I select a day and tap muscles to toggle them as planned for that day (tap again to remove), the same interaction as logging.
+- Planned look: planned muscles show a red dotted graphic (a dotted pattern, not just a colour). Hover/tap still reveals the muscle name, and the diagram stays unlabelled at rest.
+- Week view link: when a day is selected in the Week view's day strip, that day's planned muscles show the red dotted graphic, even before anything is logged. The dots stay on all day. Once a muscle is logged, the trained colour fills in underneath the dots, so I can see the plan was met. Logging works exactly as before.
+- Weekly carry-forward: when a new week starts, if the previous week had a plan, it is copied automatically as the new week's default. The copy is stored as that week's own plan, not a reference to last week's, so editing it never changes history. If the previous week had no plan, the new week starts empty.
+- Editing rules: only the current week's plan is editable, including days already passed in that week. A new week's copied plan becomes editable when that week starts. Past weeks' plans are locked as history and viewable read-only by stepping back with week navigation.
+- Month view: unchanged. The plan does not affect the 30-day counts.
+- Out of scope for V3: no "missed" scoring or alerts, no plan templates or named splits, no editing future weeks in advance.
+
 ## Data model (v1, rough)
 - `MuscleGroup`: id, label, region ("front" | "back"), parentRegion (e.g. "legs" for quads/hamstrings/glutes/calves)
 - `SessionLog`: date, muscleGroupIds (tapped as trained)
 - The weekly colour view is derived entirely from `SessionLog`, filtered to whichever week is currently selected via week navigation — no separate "plan" entity needed for v1.
+- V3 adds `PlanEntry`: weekStartDate, dayOfWeek, muscleGroupIds — stored per week. `SessionLog` is unchanged.
 
 ## Build approach
 - Platform: web app, local browser storage (consistent with the other project apps).
@@ -51,6 +64,11 @@ Notes:
 - One working slice first: diagram (front/back, tap-to-log, hover-to-reveal labels) + week navigation + colour-coded trained/not-trained view — before anything else.
 - Commit to git at each working stage.
 - After the first working version: ask Claude to review its own work for gaps before adding more features.
+- Build slices:
+  (1) v1 core loop — front/back diagram, tap-to-log, hover labels, week navigation, trained/not-trained colours.
+  (2) V2 day strip — edit any past or present day.
+  (3) V2 Month view — read-only 30-day frequency view.
+  (4) V3 Plan tab, with the Week view link and weekly carry-forward.
 
 ## Streak / consistency
 No streak mechanic for v1 — the weekly done/not-done view is the only consistency signal for now.
