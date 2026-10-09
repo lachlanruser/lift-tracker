@@ -363,31 +363,22 @@
     });
   });
 
-  describe("Plan backups", function () {
-    test("mergeMissing adds only weeks you don't have", function () {
-      var mine = { "2026-10-05": { 0: ["chest"] }, "2026-10-12": {} };
-      var backup = { "2026-09-28": { 1: ["lats"] }, "2026-10-05": { 0: ["quads"] }, "2026-10-12": { 2: ["calves"] } };
-      eq(Plans.mergeMissing(mine, backup), 1);
-      eq(mine, { "2026-09-28": { 1: ["lats"] }, "2026-10-05": { 0: ["chest"] }, "2026-10-12": {} });
-    });
-    test("v2 backup round-trips plans (including a cleared week)", function () {
+  describe("Plan backups (export only — import brings logs only)", function () {
+    test("Export includes plans, including a cleared week", function () {
       var plans = { "2026-10-05": { 0: ["chest"], 6: ["calves"] }, "2026-10-12": {} };
-      var r = Backup.parse(Backup.serialize({ "2026-10-08": ["chest"] }, plans));
-      eq(r.plans, plans);
-      eq(r.weeks, 2);
+      var data = JSON.parse(Backup.serialize({ "2026-10-08": ["chest"] }, plans));
+      eq([data.version, data.plans], [2, plans]);
+    });
+    test("Import ignores plans in the file and returns only logs", function () {
+      var text = Backup.serialize({ "2026-10-08": ["chest"] }, { "2026-10-05": { 0: ["lats"] } });
+      var r = Backup.parse(text);
+      eq(r.logs, { "2026-10-08": ["chest"] });
+      eq("plans" in r, false);
+      eq(r.skipped, 0);
     });
     test("v1 backup (no plans) still imports", function () {
       var r = Backup.parse(JSON.stringify({ app: "lift-tracker", version: 1, logs: { "2026-10-08": ["chest"] } }));
-      eq([r.logs, r.plans], [{ "2026-10-08": ["chest"] }, {}]);
-    });
-    test("Invalid plan keys are skipped", function () {
-      var r = Backup.parse(JSON.stringify({ logs: {}, plans: {
-        "2026-10-07": { 0: ["chest"] },              // a Wednesday, not a Monday
-        "2026-10-05": { 7: ["chest"], 1: ["neck", "lats"] },
-        "nope": {}
-      } }));
-      eq(r.plans, { "2026-10-05": { 1: ["lats"] } });
-      eq(r.skipped, 4);
+      eq(r.logs, { "2026-10-08": ["chest"] });
     });
   });
 

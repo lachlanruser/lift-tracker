@@ -79,14 +79,13 @@ var Store = (function () {
     return logged;
   }
 
-  // Merge imported logs in (nothing existing is removed) and add plan weeks we
-  // don't have (existing weeks keep their version). Returns { entries, weeks }.
-  function mergeIn(incomingLogs, incomingPlans) {
-    var entries = Stats.mergeInto(state.logs, incomingLogs);
-    var weeks = Plans.mergeMissing(state.plans, incomingPlans || {});
+  // Merge imported logs in (nothing existing is removed). Plans are never
+  // imported. Returns entries added.
+  function mergeIn(incoming) {
+    var added = Stats.mergeInto(state.logs, incoming);
     save();
     notify();
-    return { entries: entries, weeks: weeks };
+    return added;
   }
 
   function onChange(fn) { listeners.push(fn); }

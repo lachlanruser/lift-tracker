@@ -133,12 +133,16 @@
     if (activeId) labelEl.textContent = labelText(activeId);
   }
 
-  function renderChips(today, allowFuture) {
+  // showPlan: mark days that have planned muscles (Plan tab only).
+  function renderChips(today, allowFuture, showPlan) {
     Dates.weekDays(viewedMonday).forEach(function (day, i) {
       var parts = Dates.dayParts(day);
       var chip = chips[i];
+      var hasPlan = !!showPlan && Plans.dayList(Store.plans(), viewedMonday, i).length > 0;
       chip.setAttribute("data-day", day);
-      chip.setAttribute("aria-label", Dates.formatDay(day) + (day === today ? " (today)" : ""));
+      chip.setAttribute("aria-label", Dates.formatDay(day) + (day === today ? " (today)" : "") +
+        (hasPlan ? ", planned" : ""));
+      chip.classList.toggle("has-plan", hasPlan);
       chip.setAttribute("aria-pressed", day === selectedDay ? "true" : "false");
       chip.disabled = !allowFuture && Dates.isAfter(day, today);
       chip.classList.toggle("is-today", day === today);
@@ -192,7 +196,7 @@
       g.setAttribute("aria-label", MUSCLE_BY_ID[id].label + (isPlanned ? ", planned" : ""));
     });
 
-    renderChips(today, true);
+    renderChips(today, true, true);
     weekLabel.textContent = Dates.formatWeek(viewedMonday);
     weekSub.textContent = isCurrent
       ? "Planning for " + dayText(selectedDay, today)
@@ -357,7 +361,6 @@
   });
   window.addEventListener("focus", render);
   document.addEventListener("logs-imported", function () {
-    Store.ensurePlans(currentMonday());
     clearLabel();
     render();
   });

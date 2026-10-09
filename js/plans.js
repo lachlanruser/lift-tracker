@@ -64,24 +64,11 @@ var Plans = (function () {
     return created;
   }
 
-  // Add weeks from incoming that target doesn't have; existing weeks are kept
-  // as they are. Returns how many weeks were added.
-  function mergeMissing(target, incoming) {
-    var added = 0;
-    Object.keys(incoming).forEach(function (monday) {
-      if (monday in target) return;
-      target[monday] = copyWeek(incoming[monday]);
-      added++;
-    });
-    return added;
-  }
-
   return {
     dayIndex: dayIndex,
     dayList: dayList,
     isEmpty: isEmpty,
     toggleIn: toggleIn,
-    carryForward: carryForward,
-    mergeMissing: mergeMissing
+    carryForward: carryForward
   };
 })();

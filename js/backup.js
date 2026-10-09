@@ -2,7 +2,8 @@
 // v2: { "app": "lift-tracker", "version": 2, "exportedAt": ISO,
 //       "logs":  { "YYYY-MM-DD": [muscleId, ...] },
 //       "plans": { "<Monday YYYY-MM-DD>": { "<0-6>": [muscleId, ...] } } }
-// v1 files (no "plans") still import.
+// Import only reads "logs" (logged workouts); plans are set up per device, so
+// any "plans" in the file are ignored. v1 files (no "plans") import the same.
 
 var Backup = (function () {
   var DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -40,8 +41,8 @@ var Backup = (function () {
     return ids;
   }
 
-  // Returns { logs, plans, days, entries, weeks, skipped }. Throws Error with
-  // a readable message if the text isn't a usable backup.
+  // Returns { logs, days, entries, skipped }. Throws Error with a readable
+  // message if the text isn't a usable backup.
   function parse(text) {
     var data;
     try {
@@ -67,33 +68,7 @@ var Backup = (function () {
       }
     });
 
-    // Plans: week keys must be real Mondays, day keys 0–6. A valid week with
-    // no muscles is kept (it records a deliberately cleared plan).
-    var plans = {};
-    var rawPlans = data.plans;
-    if (rawPlans && typeof rawPlans === "object" && !Array.isArray(rawPlans)) {
-      Object.keys(rawPlans).forEach(function (monday) {
-        var week = rawPlans[monday];
-        if (!isDay(monday) || Dates.mondayOf(monday) !== monday ||
-            !week || typeof week !== "object" || Array.isArray(week)) { skip(); return; }
-        var clean = {};
-        Object.keys(week).forEach(function (idx) {
-          if (!/^[0-6]$/.test(idx) || !Array.isArray(week[idx])) { skip(); return; }
-          var ids = cleanIds(week[idx], skip);
-          if (ids.length) clean[idx] = ids;
-        });
-        plans[monday] = clean;
-      });
-    }
-
-    return {
-      logs: logs,
-      plans: plans,
-      days: Object.keys(logs).length,
-      entries: entries,
-      weeks: Object.keys(plans).length,
-      skipped: skipped
-    };
+    return { logs: logs, days: Object.keys(logs).length, entries: entries, skipped: skipped };
   }
 
   return { serialize: serialize, parse: parse };

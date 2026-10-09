@@ -175,13 +175,11 @@
     if (!file) return;
     file.text().then(function (text) {
       var result = Backup.parse(text);
-      var added = Store.mergeIn(result.logs, result.plans);
+      // Only logged workouts are imported; plans are set up on each device.
+      var added = Store.mergeIn(result.logs);
       document.dispatchEvent(new Event("logs-imported"));
-      var news = [];
-      if (added.entries) news.push(added.entries + " new " + (added.entries === 1 ? "entry" : "entries"));
-      if (added.weeks) news.push(added.weeks + " planned " + (added.weeks === 1 ? "week" : "weeks"));
       message = "Imported " + result.days + (result.days === 1 ? " day" : " days") + " — " +
-        (news.length ? news.join(" and ") + " added." : "nothing new, already up to date.") +
+        (added ? added + " new " + (added === 1 ? "entry" : "entries") + " added." : "nothing new, already up to date.") +
         (result.skipped ? " (" + result.skipped + " unrecognised item(s) skipped.)" : "");
       renderStatus();
     }).catch(function (e) {
