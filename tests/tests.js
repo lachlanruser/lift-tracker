@@ -210,9 +210,9 @@
 
     test("Export then import round-trips exactly", function () {
       var logs = { "2026-10-08": ["chest", "triceps"], "2026-09-30": ["quads"] };
-      var text = Backup.serialize(logs, {}, new Date("2026-10-08T10:00:00Z"));
+      var text = Backup.serialize(logs, {}, {}, {}, new Date("2026-10-08T10:00:00Z"));
       var data = JSON.parse(text);
-      eq([data.app, data.version, data.exportedAt], ["lift-tracker", 2, "2026-10-08T10:00:00.000Z"]);
+      eq([data.app, data.version, data.exportedAt], ["lift-tracker", 3, "2026-10-08T10:00:00.000Z"]);
       var back = Backup.parse(text);
       eq(back.logs, logs);
       eq([back.days, back.entries, back.skipped], [2, 3, 0]);
@@ -367,7 +367,7 @@
     test("Export includes plans, including a cleared week", function () {
       var plans = { "2026-10-05": { 0: ["chest"], 6: ["calves"] }, "2026-10-12": {} };
       var data = JSON.parse(Backup.serialize({ "2026-10-08": ["chest"] }, plans));
-      eq([data.version, data.plans], [2, plans]);
+      eq([data.version, data.plans], [3, plans]);
     });
     test("Import ignores plans in the file and returns only logs", function () {
       var text = Backup.serialize({ "2026-10-08": ["chest"] }, { "2026-10-05": { 0: ["lats"] } });
@@ -379,6 +379,129 @@
     test("v1 backup (no plans) still imports", function () {
       var r = Backup.parse(JSON.stringify({ app: "lift-tracker", version: 1, logs: { "2026-10-08": ["chest"] } }));
       eq(r.logs, { "2026-10-08": ["chest"] });
+    });
+  });
+
+  // ---------------------------------------------------------------- weights
+
+  describe("Weight carry-forward (default weight)", function () {
+    test("No entries -> no default", function () {
+      eq(Weights.defaultFor({}, "chest", "2026-10-23"), null);
+    });
+    test("One entry carries into following days and weeks", function () {
+      var w = { "2026-10-05": { chest: 60 } };
+      eq(Weights.defaultFor(w, "chest", "2026-10-07"), 60);
+      eq(Weights.defaultFor(w, "chest", "2026-10-19"), 60);
+      eq(Weights.defaultFor(w, "chest", "2026-12-01"), 60);
+    });
+    test("Defaults are per muscle", function () {
+      var w = { "2026-10-05": { chest: 60 } };
+      eq(Weights.defaultFor(w, "quads", "2026-10-07"), null);
+    });
+    test("A newer value becomes the default going forward; older days keep the old one", function () {
+      var w = { "2026-10-05": { chest: 60 }, "2026-10-12": { chest: 65 } };
+      eq(Weights.defaultFor(w, "chest", "2026-10-19"), 65);
+      eq(Weights.defaultFor(w, "chest", "2026-10-08"), 60);
+    });
+    test("Editing an older day doesn't override a newer entry", function () {
+      var w = { "2026-10-05": { chest: 60 }, "2026-10-12": { chest: 65 } };
+      Weights.setIn(w, "2026-10-05", "chest", 80);
+      eq(Weights.defaultFor(w, "chest", "2026-10-23"), 65);
+    });
+    test("Editing the only (newest) entry does change the default", function () {
+      var w = { "2026-10-05": { chest: 60 } };
+      Weights.setIn(w, "2026-10-05", "chest", 62.5);
+      eq(Weights.defaultFor(w, "chest", "2026-10-23"), 62.5);
+    });
+    test("The default for an older day ignores newer entries", function () {
+      var w = { "2026-10-12": { chest: 65 } };
+      eq(Weights.defaultFor(w, "chest", "2026-10-05"), null);
+    });
+    test("A day's own entry is not its own default", function () {
+      var w = { "2026-10-05": { chest: 60 }, "2026-10-12": { chest: 65 } };
+      eq(Weights.defaultFor(w, "chest", "2026-10-12"), 60);
+    });
+    test("Carries across the year boundary", function () {
+      eq(Weights.defaultFor({ "2025-12-30": { lats: 40 } }, "lats", "2026-01-06"), 40);
+    });
+    test("A cleared entry no longer counts; the one before it does", function () {
+      var w = { "2026-10-05": { chest: 60 }, "2026-10-12": { chest: 65 } };
+      Weights.setIn(w, "2026-10-12", "chest", null);
+      eq(w, { "2026-10-05": { chest: 60 } });
+      eq(Weights.defaultFor(w, "chest", "2026-10-23"), 60);
+    });
+  });
+
+  describe("Logging with weights", function () {
+    test("Logging saves the pre-filled weight for that day", function () {
+      var logs = {}, w = { "2026-10-05": { chest: 60 } };
+      logs["2026-10-05"] = ["chest"];
+      eq(Weights.toggleLogIn(logs, w, "2026-10-12", "chest"), true);
+      eq(w["2026-10-12"], { chest: 60 });
+    });
+    test("Logging with no earlier weight saves no weight", function () {
+      var logs = {}, w = {};
+      Weights.toggleLogIn(logs, w, "2026-10-12", "chest");
+      eq([logs, w], [{ "2026-10-12": ["chest"] }, {}]);
+    });
+    test("Un-logging removes that day's weight; re-logging pre-fills again", function () {
+      var logs = { "2026-10-05": ["chest"] }, w = { "2026-10-05": { chest: 60 } };
+      Weights.toggleLogIn(logs, w, "2026-10-12", "chest");
+      Weights.setIn(w, "2026-10-12", "chest", 70);
+      eq(Weights.toggleLogIn(logs, w, "2026-10-12", "chest"), false);
+      eq("2026-10-12" in w, false);
+      Weights.toggleLogIn(logs, w, "2026-10-12", "chest");
+      eq(w["2026-10-12"], { chest: 60 });
+    });
+    test("A weight alone never marks a muscle as trained", function () {
+      var w = { "2026-10-07": { chest: 60 } };
+      var status = Stats.weekStatus({}, "2026-10-05", "2026-10-07");
+      eq(status.chest, "none");
+      eq(Stats.countDays({}, "2026-09-09", "2026-10-08").chest, 0);
+      eq(Weights.defaultFor(w, "chest", "2026-10-08"), 60); // pre-fill only
+    });
+  });
+
+  describe("Weight input and cardio", function () {
+    test("parse: valid, empty and invalid input", function () {
+      eq(["60", "22.5", "22,5", " 100 ", "0", ".5", "60."].map(Weights.parse), [60, 22.5, 22.5, 100, 0, 0.5, 60]);
+      eq(Weights.parse(""), null);
+      eq(["abc", "-5", "1001", "1.234", "6 0"].map(function (s) { return isNaN(Weights.parse(s)); }),
+        [true, true, true, true, true]);
+    });
+    test("Cardio toggles on and off", function () {
+      var c = {};
+      eq(Weights.toggleCardioIn(c, "2026-10-23"), true);
+      eq(c, { "2026-10-23": true });
+      eq(Weights.toggleCardioIn(c, "2026-10-23"), false);
+      eq(c, {});
+    });
+  });
+
+  describe("Backups with cardio and weights", function () {
+    test("v3 export round-trips cardio and weights", function () {
+      var logs = { "2026-10-20": ["chest"] }, cardio = { "2026-10-21": true }, w = { "2026-10-20": { chest: 62.5 } };
+      var r = Backup.parse(Backup.serialize(logs, {}, cardio, w));
+      eq([r.logs, r.cardio, r.weights, r.skipped], [logs, cardio, w, 0]);
+    });
+    test("v2 files (no cardio/weights) still import", function () {
+      var r = Backup.parse(JSON.stringify({ app: "lift-tracker", version: 2, logs: { "2026-10-08": ["chest"] }, plans: {} }));
+      eq([r.logs, r.cardio, r.weights], [{ "2026-10-08": ["chest"] }, {}, {}]);
+    });
+    test("Bad cardio and weight values are skipped", function () {
+      var r = Backup.parse(JSON.stringify({ logs: {},
+        cardio: { "2026-10-21": true, "2026-02-30": true, "2026-10-22": "yes" },
+        weights: { "2026-10-20": { chest: 60, neck: 10, quads: -5, lats: "40", calves: 2000 }, "bad": { chest: 1 } } }));
+      eq([r.cardio, r.weights, r.skipped], [{ "2026-10-21": true }, { "2026-10-20": { chest: 60 } }, 7]);
+    });
+    test("Merge: cardio combined; weights only for logged muscles and only where missing", function () {
+      var logs = { "2026-10-20": ["chest", "quads"] };
+      var mine = { "2026-10-20": { chest: 60 } };
+      var added = Weights.mergeInto(mine, { "2026-10-20": { chest: 99, quads: 100, lats: 40 } }, logs);
+      eq([added, mine], [1, { "2026-10-20": { chest: 60, quads: 100 } }]);
+      var c = { "2026-10-20": true };
+      eq(Weights.mergeCardioInto(c, { "2026-10-20": true, "2026-10-21": true }), 1);
+      eq(c, { "2026-10-20": true, "2026-10-21": true });
     });
   });
 

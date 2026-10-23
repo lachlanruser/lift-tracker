@@ -5,6 +5,9 @@
 //   Mouse: hover shows the name, click toggles the selected day's log.
 //   Touch/pen: first tap selects + shows the name, tapping it again toggles.
 //   Keyboard: focus shows the name, Enter/Space toggles, Escape clears.
+//   For a muscle logged on the selected day, the label also holds an optional
+//   kg weight box (pre-filled from the last weight; Tab from the muscle moves
+//   into it). A "Cardio" toggle marks the selected day.
 // Month mode: read-only heatmap of days trained in a rolling 30-day window.
 //   Hover/tap/focus shows "Name · N days"; nothing toggles.
 // Plan mode: same interactions, but taps toggle the selected day's plan.
@@ -16,6 +19,11 @@
   var app = document.getElementById("app");
   var stage = document.getElementById("stage");
   var labelEl = document.getElementById("muscle-label");
+  var labelName = document.getElementById("muscle-label-name");
+  var weightWrap = document.getElementById("muscle-weight");
+  var weightInput = document.getElementById("weight-input");
+  var cardioRow = document.getElementById("cardio-row");
+  var cardioBtn = document.getElementById("cardio-btn");
   var weekLabel = document.getElementById("week-label");
   var weekSub = document.getElementById("week-sub");
   var prevBtn = document.getElementById("prev-week");
@@ -56,6 +64,9 @@
   var monthCounts = {};
   var lastToday = Dates.todayKey();
   var activeId = null;    // muscle whose label is showing
+  var activeTarget = null; // element the label is positioned over
+  var labelHovered = false;
+  var clearTimer = null;
   var selectedId = null;  // touch selection (awaiting a second tap)
   var lastPointer = "mouse";
 
@@ -130,19 +141,27 @@
     groups.forEach(function (g) {
       g.classList.toggle("is-active", g.getAttribute("data-muscle") === activeId);
     });
-    if (activeId) labelEl.textContent = labelText(activeId);
+    cardioRow.hidden = mode !== "week";
+    if (activeId) {
+      labelName.textContent = labelText(activeId);
+      updateWeightBox(activeId);
+      positionLabel(activeTarget);
+    }
   }
 
-  // showPlan: mark days that have planned muscles (Plan tab only).
-  function renderChips(today, allowFuture, showPlan) {
+  // showPlan: mark days with planned muscles (Plan tab only).
+  // showCardio: mark days with cardio (Week view only).
+  function renderChips(today, allowFuture, showPlan, showCardio) {
     Dates.weekDays(viewedMonday).forEach(function (day, i) {
       var parts = Dates.dayParts(day);
       var chip = chips[i];
       var hasPlan = !!showPlan && Plans.dayList(Store.plans(), viewedMonday, i).length > 0;
+      var hasCardio = !!showCardio && Store.hasCardio(day);
       chip.setAttribute("data-day", day);
       chip.setAttribute("aria-label", Dates.formatDay(day) + (day === today ? " (today)" : "") +
-        (hasPlan ? ", planned" : ""));
+        (hasPlan ? ", planned" : "") + (hasCardio ? ", cardio done" : ""));
       chip.classList.toggle("has-plan", hasPlan);
+      chip.classList.toggle("has-cardio", hasCardio);
       chip.setAttribute("aria-pressed", day === selectedDay ? "true" : "false");
       chip.disabled = !allowFuture && Dates.isAfter(day, today);
       chip.classList.toggle("is-today", day === today);
@@ -171,7 +190,11 @@
       g.setAttribute("aria-label", MUSCLE_BY_ID[id].label + (isPlanned ? ", planned" : ""));
     });
 
-    renderChips(today, false);
+    renderChips(today, false, false, true);
+    var cardioOn = Store.hasCardio(selectedDay);
+    cardioBtn.setAttribute("aria-pressed", cardioOn ? "true" : "false");
+    cardioBtn.setAttribute("aria-label", "Cardio done on " + Dates.formatDay(selectedDay));
+    cardioBtn.disabled = !editable();
     weekLabel.textContent = Dates.formatWeek(viewedMonday);
     weekSub.textContent = "Logging for " + dayText(selectedDay, today);
     legendDay.textContent = selectedDay === today ? "Logged today" : "Logged " + Dates.formatDay(selectedDay);
@@ -256,11 +279,38 @@
     render();
   }
 
-  function showLabel(id, target) {
-    activeId = id;
-    labelEl.textContent = labelText(id);
-    labelEl.hidden = false;
+  function groupFor(id) {
+    for (var i = 0; i < groups.length; i++) {
+      if (groups[i].getAttribute("data-muscle") === id) return groups[i];
+    }
+    return null;
+  }
 
+  function formatKg(kg) {
+    return kg === null ? "" : String(kg);
+  }
+
+  // Week view only: show the weight box for a muscle logged on the selected
+  // day. Never overwrites what you're typing.
+  function updateWeightBox(id) {
+    var logged = (Store.logs()[selectedDay] || []).indexOf(id) !== -1;
+    var show = mode === "week" && editable() && logged;
+    weightWrap.hidden = !show;
+    labelEl.classList.toggle("has-weight", show);
+    if (!show) {
+      if (document.activeElement === weightInput) weightInput.blur();
+      return;
+    }
+    weightInput.setAttribute("aria-label",
+      "Weight for " + MUSCLE_BY_ID[id].label + " on " + Dates.formatDay(selectedDay) + ", in kg");
+    if (document.activeElement !== weightInput) {
+      weightInput.value = formatKg(Store.weightFor(selectedDay, id));
+      weightInput.classList.remove("invalid");
+    }
+  }
+
+  function positionLabel(target) {
+    if (!target || labelEl.hidden) return;
     var box = target.getBoundingClientRect();
     var frame = stage.getBoundingClientRect();
     var half = labelEl.offsetWidth / 2;
@@ -268,6 +318,16 @@
     x = Math.max(half, Math.min(frame.width - half, x));
     labelEl.style.left = x + "px";
     labelEl.style.top = Math.max(labelEl.offsetHeight, box.top - frame.top - 6) + "px";
+  }
+
+  function showLabel(id, target) {
+    cancelClear();
+    activeId = id;
+    activeTarget = target;
+    labelName.textContent = labelText(id);
+    labelEl.hidden = false;
+    updateWeightBox(id);
+    positionLabel(target);
 
     groups.forEach(function (g) {
       g.classList.toggle("is-active", g.getAttribute("data-muscle") === id);
@@ -275,10 +335,28 @@
   }
 
   function clearLabel() {
+    cancelClear();
     activeId = null;
+    activeTarget = null;
     selectedId = null;
+    if (document.activeElement === weightInput) weightInput.blur();
+    weightWrap.hidden = true;
+    labelEl.classList.remove("has-weight");
     labelEl.hidden = true;
     groups.forEach(function (g) { g.classList.remove("is-active"); });
+  }
+
+  // Mouse: give the pointer time to move from the muscle into the weight box.
+  function scheduleClear() {
+    cancelClear();
+    clearTimer = setTimeout(function () {
+      if (!labelHovered && document.activeElement !== weightInput && selectedId === null) clearLabel();
+    }, 300);
+  }
+
+  function cancelClear() {
+    clearTimeout(clearTimer);
+    clearTimer = null;
   }
 
   function toggle(id) {
@@ -304,7 +382,9 @@
     });
     g.addEventListener("pointerout", function (e) {
       if (e.pointerType !== "mouse" || g.contains(e.relatedTarget)) return;
-      if (activeId === id && selectedId === null) clearLabel();
+      if (activeId !== id || selectedId !== null) return;
+      if (!weightWrap.hidden) scheduleClear();   // let the pointer reach the box
+      else clearLabel();
     });
 
     g.addEventListener("click", function (e) {
@@ -321,7 +401,10 @@
     });
 
     g.addEventListener("focus", function () { showLabel(id, g); });
-    g.addEventListener("blur", function () { if (activeId === id) clearLabel(); });
+    g.addEventListener("blur", function (e) {
+      if (e.relatedTarget === weightInput) return; // Tab moved into the weight box
+      if (activeId === id) clearLabel();
+    });
     g.addEventListener("keydown", function (e) {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
@@ -329,12 +412,71 @@
       } else if (e.key === "Escape") {
         g.blur();
         clearLabel();
+      } else if (e.key === "Tab" && !e.shiftKey && activeId === id && !weightWrap.hidden) {
+        e.preventDefault();
+        weightInput.focus();
+        weightInput.select();
       }
     });
   });
 
+  // ---------------------------------------------------------- weight box
+
+  // Clicks inside the label (the weight box) shouldn't close it.
+  labelEl.addEventListener("click", function (e) { e.stopPropagation(); });
+  labelEl.addEventListener("pointerenter", function () { labelHovered = true; cancelClear(); });
+  labelEl.addEventListener("pointerleave", function (e) {
+    labelHovered = false;
+    if (e.pointerType === "mouse" && selectedId === null && document.activeElement !== weightInput) scheduleClear();
+  });
+
+  // Each valid edit saves straight away; empty clears; invalid isn't saved.
+  weightInput.addEventListener("input", function () {
+    if (!activeId) return;
+    var kg = Weights.parse(weightInput.value);
+    var invalid = typeof kg === "number" && isNaN(kg);
+    weightInput.classList.toggle("invalid", invalid);
+    if (!invalid) Store.setWeight(selectedDay, activeId, kg);
+  });
+
+  // Enter / Escape / Tab return focus to the muscle.
+  weightInput.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== "Escape" && e.key !== "Tab") return;
+    e.preventDefault();
+    var g = groupFor(activeId);
+    if (g) g.focus();
+  });
+
+  weightInput.addEventListener("blur", function () {
+    // Show the saved value again (drops any invalid text).
+    if (activeId) {
+      weightInput.value = formatKg(Store.weightFor(selectedDay, activeId));
+      weightInput.classList.remove("invalid");
+    }
+    setTimeout(function () {
+      var focused = document.activeElement;
+      var onMuscle = focused && focused.classList && focused.classList.contains("muscle");
+      if (!activeId || weightWrap.hidden || onMuscle || labelHovered || selectedId !== null) return;
+      clearLabel();
+    }, 0);
+  });
+
+  // ---------------------------------------------------------- cardio
+
+  cardioBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    syncToday();
+    if (mode !== "week" || !editable()) return;
+    Store.toggleCardio(selectedDay);
+    render();
+  });
+
   document.addEventListener("click", clearLabel);
-  window.addEventListener("resize", clearLabel);
+  // On phones the keyboard opening resizes the window — keep the label then.
+  window.addEventListener("resize", function () {
+    if (document.activeElement === weightInput) positionLabel(activeTarget);
+    else clearLabel();
+  });
 
   Object.keys(modeBtns).forEach(function (m) {
     modeBtns[m].addEventListener("click", function (e) { e.stopPropagation(); setMode(m); });

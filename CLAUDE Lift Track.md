@@ -51,11 +51,28 @@ A third tab, Plan, sits next to Week and Month. It holds the split I've planned 
 - Month view: unchanged. The plan does not affect the 30-day counts.
 - Out of scope for V3: no "missed" scoring or alerts, no plan templates or named splits, no editing future weeks in advance.
 
+## Cardio tick and weights (V4)
+This update adds exactly two features. Nothing else.
+
+**1. Cardio tick**
+- Every day has a tick to mark that cardio was completed. It toggles on and off (undo for mis-taps).
+- Works on any editable day in the Week view, and is saved with the rest of the data.
+- Placement: a "Cardio" toggle button for the selected day in the Week view, plus a small marker on day-strip chips for days with cardio.
+
+**2. Weight per muscle group (optional)**
+- When logging a muscle group, I can optionally enter a weight, in kg (decimals allowed). No reps, no rep range, no exercise list.
+- Placement: a weight box beside the muscle's name label in the Week view, shown for muscles logged on the selected day.
+- Carry-forward: once a weight has been entered for a muscle group, it pre-fills that muscle group's weight in the following weeks until I change it. A new value then becomes the default going forward, and this repeats.
+- The default is the most recently dated weight entered for that muscle group. Editing an older day doesn't override a newer entry.
+- When I log a muscle, its pre-filled weight is saved with that day's log (so history shows what was lifted that day). Un-logging the muscle removes that day's weight.
+- A pre-filled weight never marks a muscle as trained. Only tapping a muscle logs it.
+
 ## Data model (v1, rough)
 - `MuscleGroup`: id, label, region ("front" | "back"), parentRegion (e.g. "legs" for quads/hamstrings/glutes/calves)
 - `SessionLog`: date, muscleGroupIds (tapped as trained)
 - The weekly colour view is derived entirely from `SessionLog`, filtered to whichever week is currently selected via week navigation — no separate "plan" entity needed for v1.
 - V3 adds `PlanEntry`: weekStartDate, dayOfWeek, muscleGroupIds — stored per week. `SessionLog` is unchanged.
+- V4 adds `CardioDay`: date (cardio completed) and `WeightEntry`: date, muscleGroupId, weightKg — a weight only exists for a muscle logged on that date.
 
 ## Build approach
 - Platform: web app, local browser storage (consistent with the other project apps).
@@ -69,6 +86,7 @@ A third tab, Plan, sits next to Week and Month. It holds the split I've planned 
   (2) V2 day strip — edit any past or present day.
   (3) V2 Month view — read-only 30-day frequency view.
   (4) V3 Plan tab, with the Week view link and weekly carry-forward.
+  (5) V4 cardio tick and optional weight per muscle group, with weight carry-forward.
 
 ## Streak / consistency
 No streak mechanic for v1 — the weekly done/not-done view is the only consistency signal for now.

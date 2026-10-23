@@ -43,6 +43,12 @@
 
     <div id="day-strip" class="day-strip" role="group" aria-label="Day to log"></div>
 
+    <div class="cardio-row" id="cardio-row">
+      <button id="cardio-btn" class="cardio-btn" type="button" aria-pressed="false">
+        <span class="cardio-check" aria-hidden="true">&#10003;</span> Cardio
+      </button>
+    </div>
+
     <section class="stage" id="stage">
       <figure class="figure" id="figure-front">
         <figcaption>Front</figcaption>
@@ -50,7 +56,13 @@
       <figure class="figure" id="figure-back">
         <figcaption>Back</figcaption>
       </figure>
-      <div id="muscle-label" class="muscle-label" role="status" hidden></div>
+      <div id="muscle-label" class="muscle-label" hidden>
+        <span id="muscle-label-name" role="status"></span>
+        <span id="muscle-weight" class="muscle-weight" hidden>
+          <input id="weight-input" type="text" inputmode="decimal" autocomplete="off" placeholder="&ndash;" aria-label="Weight in kg">
+          <span class="kg" aria-hidden="true">kg</span>
+        </span>
+      </div>
     </section>
 
     <ul class="legend" id="legend-week">
@@ -92,6 +104,7 @@
   <script src="js/dates.js"></script>
   <script src="js/stats.js"></script>
   <script src="js/plans.js"></script>
+  <script src="js/weights.js"></script>
   <script src="js/backup.js"></script>
   <script src="js/store.js"></script>
   <script src="js/figure.js"></script>

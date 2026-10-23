@@ -1,9 +1,12 @@
 // Backup file format (pure — no DOM or storage access, so it's testable).
-// v2: { "app": "lift-tracker", "version": 2, "exportedAt": ISO,
-//       "logs":  { "YYYY-MM-DD": [muscleId, ...] },
-//       "plans": { "<Monday YYYY-MM-DD>": { "<0-6>": [muscleId, ...] } } }
-// Import only reads "logs" (logged workouts); plans are set up per device, so
-// any "plans" in the file are ignored. v1 files (no "plans") import the same.
+// v3: { "app": "lift-tracker", "version": 3, "exportedAt": ISO,
+//       "logs":    { "YYYY-MM-DD": [muscleId, ...] },
+//       "plans":   { "<Monday YYYY-MM-DD>": { "<0-6>": [muscleId, ...] } },
+//       "cardio":  { "YYYY-MM-DD": true },
+//       "weights": { "YYYY-MM-DD": { muscleId: kg } } }
+// Import reads the logged-workout data (logs, cardio, weights). Plans are set
+// up per device, so any "plans" in the file are ignored. v1/v2 files (without
+// cardio/weights) import the same way.
 
 var Backup = (function () {
   var DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -14,16 +17,24 @@ var Backup = (function () {
     return out;
   }
 
-  function serialize(logs, plans, now) {
+  function serialize(logs, plans, cardio, weights, now) {
     return JSON.stringify({
       app: "lift-tracker",
-      version: 2,
+      version: 3,
       exportedAt: (now || new Date()).toISOString(),
       logs: sortedCopy(logs, function (ids) { return ids.slice(); }),
       plans: sortedCopy(plans || {}, function (week) {
         return sortedCopy(week, function (ids) { return ids.slice(); });
+      }),
+      cardio: sortedCopy(cardio || {}, function () { return true; }),
+      weights: sortedCopy(weights || {}, function (day) {
+        return sortedCopy(day, function (kg) { return kg; });
       })
     }, null, 2);
+  }
+
+  function isObj(v) {
+    return !!v && typeof v === "object" && !Array.isArray(v);
   }
 
   // Real calendar date in YYYY-MM-DD form (rejects e.g. 2026-02-30).
@@ -41,8 +52,8 @@ var Backup = (function () {
     return ids;
   }
 
-  // Returns { logs, days, entries, skipped }. Throws Error with a readable
-  // message if the text isn't a usable backup.
+  // Returns { logs, cardio, weights, days, entries, skipped }. Throws Error
+  // with a readable message if the text isn't a usable backup.
   function parse(text) {
     var data;
     try {
@@ -68,7 +79,36 @@ var Backup = (function () {
       }
     });
 
-    return { logs: logs, days: Object.keys(logs).length, entries: entries, skipped: skipped };
+    var cardio = {};
+    if (isObj(data.cardio)) {
+      Object.keys(data.cardio).forEach(function (day) {
+        if (!isDay(day) || data.cardio[day] !== true) { skip(); return; }
+        cardio[day] = true;
+      });
+    }
+
+    // Weights: real dates, known muscles, numbers 0–1000. (Whether the muscle
+    // is actually logged that day is checked when merging.)
+    var weights = {};
+    if (isObj(data.weights)) {
+      Object.keys(data.weights).forEach(function (day) {
+        var w = data.weights[day];
+        if (!isDay(day) || !isObj(w)) { skip(); return; }
+        Object.keys(w).forEach(function (id) {
+          if (!MUSCLE_BY_ID[id] || !Weights.isValidKg(w[id])) { skip(); return; }
+          Weights.setIn(weights, day, id, w[id]);
+        });
+      });
+    }
+
+    return {
+      logs: logs,
+      cardio: cardio,
+      weights: weights,
+      days: Object.keys(logs).length,
+      entries: entries,
+      skipped: skipped
+    };
   }
 
   return { serialize: serialize, parse: parse };

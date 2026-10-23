@@ -203,6 +203,43 @@ body {
   background: var(--today);
 }
 
+/* Week view: tick on days with cardio (top-left; never shown with the plan
+   marker, which is Plan tab only). */
+.day-chip.has-cardio::before {
+  content: "\2713";
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--today);
+}
+
+/* Cardio toggle for the selected day */
+.cardio-row { display: flex; justify-content: center; margin-top: 10px; }
+
+.cardio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cardio-btn .cardio-check { opacity: 0.25; }
+.cardio-btn:hover { background: var(--line); }
+.cardio-btn:focus-visible { outline: 2px solid var(--today); outline-offset: 2px; }
+.cardio-btn[aria-pressed="true"] { background: var(--today); border-color: var(--today); color: #fff; }
+.cardio-btn[aria-pressed="true"] .cardio-check { opacity: 1; }
+
 /* Plan tab: red marker on days that have planned muscles. */
 .day-chip.has-plan::before {
   content: "";
@@ -308,6 +345,32 @@ body {
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* Weight box inside the label (Week view, logged muscles only) */
+.muscle-label.has-weight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  pointer-events: auto;
+}
+
+.muscle-weight { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+
+#weight-input {
+  width: 4.5em;
+  padding: 2px 6px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: var(--label-ink);
+  color: var(--label-bg);
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming in on focus */
+  text-align: right;
+}
+
+#weight-input:focus { outline: none; border-color: var(--today); }
+#weight-input.invalid { border-color: var(--plan); }
 
 /* Legend */
 
