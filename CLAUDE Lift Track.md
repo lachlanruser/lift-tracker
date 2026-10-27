@@ -3,8 +3,8 @@
 ## Core idea
 A visual strength-training tracker built around a clickable front/back muscle diagram. No pre-set plan for v1 — I log after the fact by tapping muscle groups I've trained each day, and at the end of the week I can see the diagram colour-coded by what was/wasn't trained, so I can judge for myself if I've neglected anything. I can also step back through previous weeks to see past splits.
 
-## Muscle groups (v1, finalised)
-**Front view:** Chest, Anterior delts, Lateral delts, Biceps, Forearms, Core (abs), Obliques, Quads, Hip flexors
+## Muscle groups (current — 19 groups)
+**Front view:** Chest, Anterior delts, Lateral delts, Biceps, Brachialis, Brachioradialis, Inner forearm, Core (abs), Obliques, Quads, Hip flexors
 
 **Back view:** Traps, Rear delts, Lats, Lower back, Triceps, Glutes, Hamstrings, Calves
 
@@ -12,6 +12,8 @@ Notes:
 - Shoulders are split three ways: anterior and lateral delts tap on the front view, rear delt taps on the back view — they're logged as distinct groups, not merged into one "shoulders" tap.
 - Calves are a single group (not split front/back) — shown on the back view.
 - Core and obliques are separate tap targets, not combined.
+- Upper arm (front): Biceps, plus Brachialis as a narrow outer strip from mid upper arm to the elbow (V5).
+- Forearm (front): the old single "Forearms" group was split in V5 into Brachioradialis (outer, thumb-side strip from the elbow down the upper forearm) and Inner forearm (the rest). Old "Forearms" data was moved to Inner forearm.
 
 ## Diagram
 - Front and back views (needed for posterior groups like hamstrings, glutes, back).
@@ -64,15 +66,33 @@ This update adds exactly two features. Nothing else.
 - Placement: a weight box beside the muscle's name label in the Week view, shown for muscles logged on the selected day.
 - Carry-forward: once a weight has been entered for a muscle group, it pre-fills that muscle group's weight in the following weeks until I change it. A new value then becomes the default going forward, and this repeats.
 - The default is the most recently dated weight entered for that muscle group. Editing an older day doesn't override a newer entry.
-- When I log a muscle, its pre-filled weight is saved with that day's log (so history shows what was lifted that day). Un-logging the muscle removes that day's weight.
-- A pre-filled weight never marks a muscle as trained. Only tapping a muscle logs it.
+- When I log a muscle, its pre-filled weight is saved with that day's log (so history shows what was lifted that day).
+- Weight memory (changed in V5): un-ticking a muscle keeps that day's weight. Re-ticking the same day brings the weight back; a later day pre-fills from the most recently dated weight, including weights on days I un-ticked. I can still change the pre-filled value.
+- A pre-filled or remembered weight never marks a muscle as trained. Only tapping a muscle logs it.
+
+## Arm splits, weight memory and weights overview (V5)
+**1. Brachialis** — new front-view tap target (outer strip, mid upper arm to elbow), with its own label, logging, week colouring, Month count, plan dots and weight.
+
+**2. Forearm split** — "Forearms" becomes Brachioradialis + Inner forearm (front view). Existing forearm ticks, plans and weights move to Inner forearm automatically on load and when importing older backups.
+
+**3. Weight memory fix** — previously un-ticking deleted that day's weight, so re-ticking lost it. Now the app always remembers the last weight entered for each muscle and offers it as a pre-filled suggestion (see V4 weight rules above).
+
+**4. Weights overview** — a "Weights" button (above the Backup panel) opens a read-only panel with a table:
+- One row per muscle (diagram order): muscle · latest weight (kg) · last bump.
+- Latest weight = the weight on the most recent day that muscle was ticked. Only ticked days count; remembered weights on un-ticked days are ignored here.
+- Last bump = the last day the weight beat that muscle's previous best (shown "↑ 22 Oct"). A deload, or climbing back to an old best, doesn't reset it — only a new best does. A muscle with only one weight counts from that first weight (shown "since 20 Oct").
+- Colour bands by days since the bump: green 0–14, amber 15–27, red 28+, with a legend. The date and day count ("· 5 d") are always shown, so colour isn't the only signal.
+- Muscles with no weight show "–".
+- Closes with the ✕, Escape or tapping outside. Uses the app's existing colours (plus an amber token) and styles.
 
 ## Data model (v1, rough)
 - `MuscleGroup`: id, label, region ("front" | "back"), parentRegion (e.g. "legs" for quads/hamstrings/glutes/calves)
 - `SessionLog`: date, muscleGroupIds (tapped as trained)
 - The weekly colour view is derived entirely from `SessionLog`, filtered to whichever week is currently selected via week navigation — no separate "plan" entity needed for v1.
 - V3 adds `PlanEntry`: weekStartDate, dayOfWeek, muscleGroupIds — stored per week. `SessionLog` is unchanged.
-- V4 adds `CardioDay`: date (cardio completed) and `WeightEntry`: date, muscleGroupId, weightKg — a weight only exists for a muscle logged on that date.
+- V4 adds `CardioDay`: date (cardio completed) and `WeightEntry`: date, muscleGroupId, weightKg.
+- V5: a `WeightEntry` is kept when the muscle is un-ticked that day (remembered for pre-fill); only entries on ticked days count as training history (weights overview). The overview's latest weight and last bump are derived from `SessionLog` + `WeightEntry` — nothing extra is stored.
+- Stored as one localStorage object: `{ logs, plans, cardio, weights }`.
 
 ## Build approach
 - Platform: web app, local browser storage (consistent with the other project apps).
@@ -87,6 +107,7 @@ This update adds exactly two features. Nothing else.
   (3) V2 Month view — read-only 30-day frequency view.
   (4) V3 Plan tab, with the Week view link and weekly carry-forward.
   (5) V4 cardio tick and optional weight per muscle group, with weight carry-forward.
+  (6) V5 Brachialis, forearm split (Brachioradialis + Inner forearm), weight memory fix, weights overview panel.
 
 ## Streak / consistency
 No streak mechanic for v1 — the weekly done/not-done view is the only consistency signal for now.
@@ -106,9 +127,10 @@ No streak mechanic for v1 — the weekly done/not-done view is the only consiste
 - **Month bands (V2):** fixed day counts — 0 (hatched grey), 1, 2–3, 4–5, 6–8, 9+. Shades of a single green (light → dark = more days; flipped in dark mode) — easier to read at a glance than the earlier multi-hue version. Hover/tap shows "Name · N days" for exact counts.
 - **Midnight rollover:** if the app stays open past midnight, a selection that was on "today" moves to the new today (and the new week on Sunday→Monday). Deliberately chosen past days are kept.
 - **Backup:** Export (downloads a dated `.json`) and Import (merges — nothing existing is removed; unknown muscles/bad dates are skipped). In Chrome/Edge, auto-backup rewrites a file you pick after every change (put it in OneDrive for a cloud copy); after a browser restart it shows "paused" until you click Resume. Safari/Firefox can't auto-save to a file, so the panel shows "Last backup N days ago" and nudges after 7 days. The app also requests persistent storage. Each browser keeps its own logs — use the backup file to move between them.
-- **Tests:** open `tests/index.html` (via the local server) — covers week boundaries, the 30-day window and days with no data.
+- **Tests:** open `tests/index.html` (via the local server, or directly from disk) — covers week boundaries, the 30-day window, days with no data, midnight rollover, plan carry-forward, weight carry-forward and memory, cardio, backups, the forearm migration, and the weights overview (day counts, bands, bump/deload rules).
 - **Plan tab (V3):** tabs are Week · Month · Plan. Week and Plan share the viewed week and selected day (a future day picked in Plan falls back to today in Week). Same mouse/touch/keyboard interaction as logging. Only the current week's plan is editable (all 7 days); past weeks are view-only.
 - **Plan storage (V3):** `plans` = { weekMonday: { dayIndex 0–6 (Mon–Sun): [muscleIds] } }, saved alongside `logs`. A week record with no muscles means "cleared — don't refill".
-- **Carry-forward (V3):** on open, at a new week, and after an import, the latest stored plan (if not empty) is copied into every week up to and including the current one that has no record — so skipped weeks are filled too. Each copy is independent. Copies are taken when the new week starts, so mid-week edits carry forward. Existing records (including cleared ones) are never overwritten.
+- **Carry-forward (V3):** on open and at a new week, the latest stored plan (if not empty) is copied into every week up to and including the current one that has no record — so skipped weeks are filled too. Each copy is independent. Copies are taken when the new week starts, so mid-week edits carry forward. Existing records (including cleared ones) are never overwritten.
 - **Plan look (V3):** small red dots over the muscle's normal colour, so grey / light green / strong green still read underneath. In Week view, the "Planned" legend item only appears once that week has a plan. The Plan tab shows only the plan (no logged colours), and its day strip marks days that have a plan with a red dot.
-- **Backups (V3):** Export (format version 2) includes plans for the record, but Import only brings in logged workouts — plans are set up manually on each device. Version 1 backups still import.
+- **Backups (current):** Export (format version 3) includes logs, plans, cardio and weights. Import brings in logged-workout data only — logs and cardio are combined, weights fill in only where missing (never overwrite) — and ignores plans, which are set up manually on each device. Older backups (v1/v2, and files with the old "forearms" group) still import.
+- **Weights overview (V5):** "Weights" button above Backup opens a read-only panel; bump = new best for that muscle; one weight = "since" its first log; bands green 0–14 / amber 15–27 / red 28+ days, with date and day count always shown.
