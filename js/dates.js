@@ -93,6 +93,22 @@ var Dates = (function () {
     return WEEKDAYS[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()];
   }
 
+  // Whole calendar days from a to b (b - a). Uses UTC so DST can't skew it.
+  function daysBetween(a, b) {
+    var pa = a.split("-"), pb = b.split("-");
+    var ua = Date.UTC(+pa[0], +pa[1] - 1, +pa[2]);
+    var ub = Date.UTC(+pb[0], +pb[1] - 1, +pb[2]);
+    return Math.round((ub - ua) / 86400000);
+  }
+
+  // "22 Oct", or "14 Sep 2025" when the year differs from today's.
+  function formatShort(key, today) {
+    var d = parseKey(key);
+    var s = d.getDate() + " " + MONTHS[d.getMonth()];
+    if (!today || key.slice(0, 4) !== today.slice(0, 4)) s += " " + d.getFullYear();
+    return s;
+  }
+
   // { dow: "Sun", date: 4 } for day-strip chips.
   function dayParts(key) {
     var d = parseKey(key);
@@ -111,6 +127,8 @@ var Dates = (function () {
     formatRange: formatRange,
     formatWeek: formatWeek,
     formatDay: formatDay,
+    daysBetween: daysBetween,
+    formatShort: formatShort,
     dayParts: dayParts
   };
 })();

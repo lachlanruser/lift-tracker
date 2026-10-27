@@ -87,6 +87,51 @@ var Weights = (function () {
     return added;
   }
 
+  // ---------------------------------------------------------- overview
+
+  // [{ day, kg }] in date order: only days where id is ticked AND has a weight.
+  function history(logs, weights, id) {
+    return Object.keys(weights).sort().filter(function (day) {
+      return weights[day][id] != null && (logs[day] || []).indexOf(id) !== -1;
+    }).map(function (day) {
+      return { day: day, kg: weights[day][id] };
+    });
+  }
+
+  // Progressive-overload bands by days since the last bump.
+  function bandFor(days) {
+    if (days <= 14) return "green";
+    if (days <= 27) return "amber";
+    return "red";
+  }
+
+  // Summary for the weights overview, or null if no ticked weight yet.
+  // A "bump" is a weight that beats every earlier weight (a new best), so a
+  // deload or climbing back to an old best doesn't reset the clock. With only
+  // one weight, it counts from that first weight (kind "since").
+  function summary(logs, weights, id, today) {
+    var h = history(logs, weights, id);
+    if (!h.length) return null;
+    var best = h[0].kg, bumpDay = h[0].day, kind = "since";
+    for (var i = 1; i < h.length; i++) {
+      if (h[i].kg > best) {
+        best = h[i].kg;
+        bumpDay = h[i].day;
+        kind = "up";
+      }
+    }
+    var days = Math.max(0, Dates.daysBetween(bumpDay, today));
+    return {
+      latest: h[h.length - 1].kg,
+      latestDay: h[h.length - 1].day,
+      best: best,
+      bumpDay: bumpDay,
+      kind: kind,
+      days: days,
+      band: bandFor(days)
+    };
+  }
+
   // Toggle cardio for day in place. Returns true if now ticked.
   function toggleCardioIn(cardio, day) {
     if (cardio[day]) {
@@ -106,6 +151,9 @@ var Weights = (function () {
     toggleLogIn: toggleLogIn,
     mergeInto: mergeInto,
     mergeCardioInto: mergeCardioInto,
+    history: history,
+    bandFor: bandFor,
+    summary: summary,
     toggleCardioIn: toggleCardioIn
   };
 })();

@@ -564,6 +564,72 @@
     });
   });
 
+  describe("Weights overview: dates and bands", function () {
+    test("daysBetween: same day, month end, DST start, year boundary", function () {
+      eq(Dates.daysBetween("2026-10-27", "2026-10-27"), 0);
+      eq(Dates.daysBetween("2026-09-30", "2026-10-01"), 1);
+      eq(Dates.daysBetween("2026-10-03", "2026-10-05"), 2);  // AU DST starts Sun 4 Oct
+      eq(Dates.daysBetween("2025-12-25", "2026-01-08"), 14);
+      eq(Dates.daysBetween("2026-10-27", "2026-10-20"), -7);
+    });
+    test("Bands: green 0-14, amber 15-27, red 28+", function () {
+      eq([0, 14, 15, 27, 28, 100].map(Weights.bandFor), ["green", "green", "amber", "amber", "red", "red"]);
+    });
+    test("formatShort adds the year only when it differs", function () {
+      eq(Dates.formatShort("2026-10-22", "2026-10-27"), "22 Oct");
+      eq(Dates.formatShort("2025-09-14", "2026-01-10"), "14 Sep 2025");
+    });
+  });
+
+  describe("Weights overview: last bump", function () {
+    var T = "2026-10-27";
+    function L(days, id) { var l = {}; days.forEach(function (d) { l[d] = [id || "chest"]; }); return l; }
+    test("No weights -> null (shown as a dash)", function () {
+      eq(Weights.summary({}, {}, "chest", T), null);
+    });
+    test("One weight -> 'since' that day, coloured by its age", function () {
+      var s = Weights.summary(L(["2026-10-20"]), { "2026-10-20": { chest: 60 } }, "chest", T);
+      eq([s.latest, s.kind, s.bumpDay, s.days, s.band], [60, "since", "2026-10-20", 7, "green"]);
+    });
+    test("An increase is a bump on that date", function () {
+      var w = { "2026-09-01": { chest: 60 }, "2026-10-06": { chest: 62.5 } };
+      var s = Weights.summary(L(["2026-09-01", "2026-10-06"]), w, "chest", T);
+      eq([s.latest, s.kind, s.bumpDay, s.days, s.band], [62.5, "up", "2026-10-06", 21, "amber"]);
+    });
+    test("Repeating the same weight keeps the old bump date", function () {
+      var w = { "2026-09-01": { chest: 60 }, "2026-09-08": { chest: 62.5 }, "2026-10-20": { chest: 62.5 } };
+      var s = Weights.summary(L(["2026-09-01", "2026-09-08", "2026-10-20"]), w, "chest", T);
+      eq([s.bumpDay, s.days, s.band], ["2026-09-08", 49, "red"]);
+    });
+    test("Deload: lower latest weight, bump date unchanged", function () {
+      var w = { "2026-10-01": { chest: 60 }, "2026-10-08": { chest: 65 }, "2026-10-22": { chest: 50 } };
+      var s = Weights.summary(L(["2026-10-01", "2026-10-08", "2026-10-22"]), w, "chest", T);
+      eq([s.latest, s.bumpDay, s.kind, s.days, s.band], [50, "2026-10-08", "up", 19, "amber"]);
+    });
+    test("Recovering to the old best isn't a bump; beating it is", function () {
+      var days = ["2026-09-01", "2026-09-15", "2026-09-22", "2026-10-26"];
+      var w = { "2026-09-01": { chest: 65 }, "2026-09-15": { chest: 50 }, "2026-09-22": { chest: 65 }, "2026-10-26": { chest: 67.5 } };
+      var before = Weights.summary(L(days.slice(0, 3)), w, "chest", T);
+      eq([before.bumpDay, before.kind], ["2026-09-01", "since"]);
+      var after = Weights.summary(L(days), w, "chest", T);
+      eq([after.bumpDay, after.kind, after.days, after.band], ["2026-10-26", "up", 1, "green"]);
+    });
+    test("Un-ticked days are ignored (remembered weights don't count)", function () {
+      var w = { "2026-10-01": { chest: 60 }, "2026-10-20": { chest: 80 } };
+      var s = Weights.summary(L(["2026-10-01"]), w, "chest", T);   // 20 Oct not ticked
+      eq([s.latest, s.bumpDay, s.kind], [60, "2026-10-01", "since"]);
+    });
+    test("Latest weight comes from the most recent ticked day", function () {
+      var w = { "2026-10-01": { chest: 60 }, "2026-10-10": { chest: 70 }, "2026-10-20": { chest: 65 } };
+      var s = Weights.summary(L(["2026-10-01", "2026-10-10", "2026-10-20"]), w, "chest", T);
+      eq([s.latest, s.latestDay, s.best], [65, "2026-10-20", 70]);
+    });
+    test("Each muscle is summarised separately", function () {
+      var logs = { "2026-10-20": ["chest", "lats"] }, w = { "2026-10-20": { chest: 60 } };
+      eq([Weights.summary(logs, w, "lats", T), Weights.summary(logs, w, "chest", T).latest], [null, 60]);
+    });
+  });
+
   describe("Weight input and cardio", function () {
     test("parse: valid, empty and invalid input", function () {
       eq(["60", "22.5", "22,5", " 100 ", "0", ".5", "60."].map(Weights.parse), [60, 22.5, 22.5, 100, 0, 0.5, 60]);
