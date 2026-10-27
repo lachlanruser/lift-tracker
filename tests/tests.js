@@ -382,6 +382,26 @@
     });
   });
 
+  // ---------------------------------------------------------------- muscles
+
+  describe("Muscle groups", function () {
+    test("Brachialis is a front-view arm muscle, separate from Biceps", function () {
+      eq(MUSCLE_BY_ID.brachialis, { id: "brachialis", label: "Brachialis", region: "front", parentRegion: "arms" });
+      eq(!!MUSCLE_BY_ID.biceps, true);
+    });
+    test("Brachialis logs, colours and counts on its own", function () {
+      var logs = { "2026-10-26": ["brachialis"], "2026-10-27": ["biceps"] };
+      var s = Stats.weekStatus(logs, "2026-10-26", "2026-10-27");
+      eq([s.brachialis, s.biceps], ["week", "day"]);
+      var c = Stats.countDays(logs, "2026-09-28", "2026-10-27");
+      eq([c.brachialis, c.biceps], [1, 1]);
+    });
+    test("Every muscle id is unique", function () {
+      var ids = MUSCLES.map(function (m) { return m.id; });
+      eq(ids.filter(function (id, i) { return ids.indexOf(id) !== i; }), []);
+    });
+  });
+
   // ---------------------------------------------------------------- weights
 
   describe("Weight carry-forward (default weight)", function () {

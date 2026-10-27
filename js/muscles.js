@@ -1,10 +1,11 @@
-// The 17 v1 muscle groups. region = which diagram view it's tapped on.
+// The muscle groups. region = which diagram view it's tapped on.
 
 var MUSCLES = [
   { id: "chest",         label: "Chest",          region: "front", parentRegion: "chest" },
   { id: "anterior-delts", label: "Anterior delts", region: "front", parentRegion: "shoulders" },
   { id: "lateral-delts", label: "Lateral delts",  region: "front", parentRegion: "shoulders" },
   { id: "biceps",        label: "Biceps",         region: "front", parentRegion: "arms" },
+  { id: "brachialis",    label: "Brachialis",     region: "front", parentRegion: "arms" },
   { id: "forearms",      label: "Forearms",       region: "front", parentRegion: "arms" },
   { id: "core",          label: "Core (abs)",     region: "front", parentRegion: "core" },
   { id: "obliques",      label: "Obliques",       region: "front", parentRegion: "core" },
