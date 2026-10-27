@@ -500,14 +500,60 @@
       Weights.toggleLogIn(logs, w, "2026-10-12", "chest");
       eq([logs, w], [{ "2026-10-12": ["chest"] }, {}]);
     });
-    test("Un-logging removes that day's weight; re-logging pre-fills again", function () {
-      var logs = { "2026-10-05": ["chest"] }, w = { "2026-10-05": { chest: 60 } };
-      Weights.toggleLogIn(logs, w, "2026-10-12", "chest");
-      Weights.setIn(w, "2026-10-12", "chest", 70);
-      eq(Weights.toggleLogIn(logs, w, "2026-10-12", "chest"), false);
-      eq("2026-10-12" in w, false);
-      Weights.toggleLogIn(logs, w, "2026-10-12", "chest");
-      eq(w["2026-10-12"], { chest: 60 });
+  });
+
+  describe("Weight memory (un-tick and re-tick)", function () {
+    test("Same day: tick, enter 65, un-tick, re-tick -> 65 comes back", function () {
+      var logs = {}, w = {};
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");
+      Weights.setIn(w, "2026-10-27", "chest", 65);
+      eq(Weights.toggleLogIn(logs, w, "2026-10-27", "chest"), false);  // un-tick
+      eq(w["2026-10-27"], { chest: 65 });                              // remembered
+      eq(Weights.toggleLogIn(logs, w, "2026-10-27", "chest"), true);   // re-tick
+      eq(w["2026-10-27"], { chest: 65 });
+    });
+    test("Same day: re-tick keeps the typed value even when an older default differs", function () {
+      var logs = { "2026-10-20": ["chest"] }, w = { "2026-10-20": { chest: 60 } };
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");   // pre-fills 60
+      Weights.setIn(w, "2026-10-27", "chest", 70);           // changed to 70
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");   // un-tick
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");   // re-tick
+      eq(w["2026-10-27"].chest, 70);
+    });
+    test("Later day: weight entered then un-ticked is still offered next time", function () {
+      var logs = {}, w = {};
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");
+      Weights.setIn(w, "2026-10-27", "chest", 65);
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");   // un-tick
+      Weights.toggleLogIn(logs, w, "2026-11-03", "chest");   // next week
+      eq(w["2026-11-03"], { chest: 65 });
+    });
+    test("Later day: the un-ticked newer value beats an older ticked one", function () {
+      var logs = { "2026-10-20": ["chest"] }, w = { "2026-10-20": { chest: 60 } };
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");
+      Weights.setIn(w, "2026-10-27", "chest", 67.5);
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");   // un-tick
+      eq(Weights.defaultFor(w, "chest", "2026-10-30"), 67.5);
+    });
+    test("The pre-filled value can still be changed", function () {
+      var logs = {}, w = { "2026-10-20": { chest: 60 } };
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");
+      Weights.setIn(w, "2026-10-27", "chest", 62.5);
+      eq([w["2026-10-27"].chest, Weights.defaultFor(w, "chest", "2026-10-30")], [62.5, 62.5]);
+    });
+    test("An un-ticked remembered weight never marks the muscle trained", function () {
+      var logs = {}, w = {};
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");
+      Weights.setIn(w, "2026-10-27", "chest", 65);
+      Weights.toggleLogIn(logs, w, "2026-10-27", "chest");   // un-tick
+      eq(logs, {});
+      eq(Stats.weekStatus(logs, "2026-10-26", "2026-10-27").chest, "none");
+      eq(Stats.countDays(logs, "2026-09-28", "2026-10-27").chest, 0);
+    });
+    test("Editing an older day still doesn't override a newer remembered weight", function () {
+      var logs = {}, w = { "2026-10-20": { chest: 60 }, "2026-10-27": { chest: 65 } };
+      Weights.setIn(w, "2026-10-20", "chest", 90);
+      eq(Weights.defaultFor(w, "chest", "2026-11-03"), 65);
     });
     test("A weight alone never marks a muscle as trained", function () {
       var w = { "2026-10-07": { chest: 60 } };
@@ -550,11 +596,10 @@
         weights: { "2026-10-20": { chest: 60, neck: 10, quads: -5, lats: "40", calves: 2000 }, "bad": { chest: 1 } } }));
       eq([r.cardio, r.weights, r.skipped], [{ "2026-10-21": true }, { "2026-10-20": { chest: 60 } }, 7]);
     });
-    test("Merge: cardio combined; weights only for logged muscles and only where missing", function () {
-      var logs = { "2026-10-20": ["chest", "quads"] };
+    test("Merge: cardio combined; weights fill in only where missing (never overwrite)", function () {
       var mine = { "2026-10-20": { chest: 60 } };
-      var added = Weights.mergeInto(mine, { "2026-10-20": { chest: 99, quads: 100, lats: 40 } }, logs);
-      eq([added, mine], [1, { "2026-10-20": { chest: 60, quads: 100 } }]);
+      var added = Weights.mergeInto(mine, { "2026-10-20": { chest: 99, quads: 100, lats: 40 } });
+      eq([added, mine], [2, { "2026-10-20": { chest: 60, quads: 100, lats: 40 } }]);
       var c = { "2026-10-20": true };
       eq(Weights.mergeCardioInto(c, { "2026-10-20": true, "2026-10-21": true }), 1);
       eq(c, { "2026-10-20": true, "2026-10-21": true });

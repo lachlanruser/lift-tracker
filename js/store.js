@@ -88,8 +88,9 @@ var Store = (function () {
     return created;
   }
 
-  // Add or remove id from day's log (logging saves the carry-forward weight,
-  // un-logging removes that day's weight). Returns true if now logged.
+  // Add or remove id from day's log. Logging keeps that day's remembered
+  // weight or saves the carry-forward one; un-logging keeps the weight so a
+  // re-tick brings it back. Returns true if now logged.
   function toggle(day, id) {
     var logged = Weights.toggleLogIn(state.logs, state.weights, day, id);
     commit();
@@ -125,7 +126,7 @@ var Store = (function () {
       cardio: Weights.mergeCardioInto(state.cardio, incomingCardio || {}),
       weights: 0
     };
-    added.weights = Weights.mergeInto(state.weights, incomingWeights || {}, state.logs);
+    added.weights = Weights.mergeInto(state.weights, incomingWeights || {});
     commit();
     return added;
   }

@@ -1,7 +1,10 @@
 // Weights (kg per logged muscle per day) and cardio days — pure functions over
 // plain objects, so tests can use fixtures.
 //
-// weights = { "YYYY-MM-DD": { muscleId: kg } }   (only for muscles logged that day)
+// weights = { "YYYY-MM-DD": { muscleId: kg } }
+//   A weight is remembered even if the muscle is later un-ticked that day, so
+//   re-ticking (same day or later) offers it again. Only ticked days count as
+//   training (see history/summary); un-ticked weights only feed the pre-fill.
 // cardio  = { "YYYY-MM-DD": true }
 
 var Weights = (function () {
@@ -45,29 +48,26 @@ var Weights = (function () {
     (weights[day] || (weights[day] = {}))[id] = kg;
   }
 
-  // Toggle a muscle's log for day (in place) and keep weights in step:
-  // logging saves the carry-forward default (if any) as that day's weight;
-  // un-logging removes that day's weight. A weight never logs a muscle by
-  // itself. Returns true if now logged.
+  // Toggle a muscle's log for day (in place). Ticking keeps a weight already
+  // remembered for that day; otherwise it saves the carry-forward default (if
+  // any). Un-ticking keeps the weight, so it comes back on re-tick. A weight
+  // never logs a muscle by itself. Returns true if now logged.
   function toggleLogIn(logs, weights, day, id) {
     var logged = Stats.toggleIn(logs, day, id);
-    if (logged) {
+    if (logged && !(weights[day] && weights[day][id] != null)) {
       var kg = defaultFor(weights, id, day);
       if (kg !== null) setIn(weights, day, id, kg);
-    } else {
-      setIn(weights, day, id, null);
     }
     return logged;
   }
 
-  // Import: add incoming weights only where the muscle is logged that day (in
-  // the already-merged logs) and target has no weight for it yet.
-  function mergeInto(target, incoming, logs) {
+  // Import: add incoming weights where target has none for that day+muscle
+  // (remembered weights count too, ticked or not). Never overwrites.
+  function mergeInto(target, incoming) {
     var added = 0;
     Object.keys(incoming).forEach(function (day) {
       Object.keys(incoming[day]).forEach(function (id) {
-        var logged = (logs[day] || []).indexOf(id) !== -1;
-        if (!logged || (target[day] && target[day][id] != null)) return;
+        if (target[day] && target[day][id] != null) return;
         setIn(target, day, id, incoming[day][id]);
         added++;
       });
