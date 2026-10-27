@@ -396,6 +396,42 @@
       var c = Stats.countDays(logs, "2026-09-28", "2026-10-27");
       eq([c.brachialis, c.biceps], [1, 1]);
     });
+    test("Forearms is split into Brachioradialis and Inner forearm", function () {
+      eq(MUSCLE_BY_ID.forearms, undefined);
+      eq([MUSCLE_BY_ID.brachioradialis.label, MUSCLE_BY_ID["inner-forearm"].label], ["Brachioradialis", "Inner forearm"]);
+      eq([MUSCLE_BY_ID.brachioradialis.region, MUSCLE_BY_ID["inner-forearm"].region], ["front", "front"]);
+    });
+    test("Migration moves old forearms ticks, plans and weights to Inner forearm", function () {
+      var state = {
+        logs: { "2026-10-20": ["chest", "forearms"], "2026-10-21": ["quads"] },
+        plans: { "2026-10-19": { 0: ["forearms", "biceps"] } },
+        weights: { "2026-10-20": { forearms: 20, chest: 60 } }
+      };
+      eq(Migrate.apply(state), true);
+      eq(state, {
+        logs: { "2026-10-20": ["chest", "inner-forearm"], "2026-10-21": ["quads"] },
+        plans: { "2026-10-19": { 0: ["inner-forearm", "biceps"] } },
+        weights: { "2026-10-20": { chest: 60, "inner-forearm": 20 } }
+      });
+    });
+    test("Migration de-duplicates when both ids exist (new id's weight kept)", function () {
+      var state = { logs: { "2026-10-20": ["forearms", "inner-forearm"] }, plans: {},
+        weights: { "2026-10-20": { forearms: 20, "inner-forearm": 25 } } };
+      Migrate.apply(state);
+      eq([state.logs["2026-10-20"], state.weights["2026-10-20"]], [["inner-forearm"], { "inner-forearm": 25 }]);
+    });
+    test("Migration is safe to run twice", function () {
+      var state = { logs: { "2026-10-20": ["forearms"] }, plans: {}, weights: {} };
+      Migrate.apply(state);
+      var once = JSON.stringify(state);
+      eq(Migrate.apply(state), false);
+      eq(JSON.stringify(state), once);
+    });
+    test("An old backup with forearms imports as Inner forearm", function () {
+      var r = Backup.parse(JSON.stringify({ app: "lift-tracker", version: 3,
+        logs: { "2026-10-20": ["forearms"] }, weights: { "2026-10-20": { forearms: 20 } } }));
+      eq([r.logs, r.weights, r.skipped], [{ "2026-10-20": ["inner-forearm"] }, { "2026-10-20": { "inner-forearm": 20 } }, 0]);
+    });
     test("Every muscle id is unique", function () {
       var ids = MUSCLES.map(function (m) { return m.id; });
       eq(ids.filter(function (id, i) { return ids.indexOf(id) !== i; }), []);

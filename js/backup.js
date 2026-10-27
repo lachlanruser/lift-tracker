@@ -66,6 +66,10 @@ var Backup = (function () {
       throw new Error("That file isn't a Lift Tracker backup.");
     }
 
+    // Old files may use renamed muscle ids (e.g. "forearms"); upgrade first so
+    // they import rather than being skipped as unknown.
+    Migrate.apply({ logs: raw, plans: isObj(data.plans) ? data.plans : {}, weights: isObj(data.weights) ? data.weights : {} });
+
     var skipped = 0;
     function skip() { skipped++; }
 

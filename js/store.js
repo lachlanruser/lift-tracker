@@ -13,6 +13,9 @@ var Store = (function () {
   var meta = loadMeta();
   var listeners = [];
 
+  // Upgrade older saved data (e.g. old "forearms" -> "inner-forearm").
+  if (Migrate.apply(state)) save();
+
   function obj(v) {
     return v && typeof v === "object" && !Array.isArray(v) ? v : {};
   }
